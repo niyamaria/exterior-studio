@@ -1,23 +1,44 @@
-# Exterior Studio — Technical plan
+# Exterior Studio — Technical architecture
 
-## Prototype currently in repository
-- Procedural **demo** house geometry in Three.js (NOT reconstructed from photos)
-- Click/hover mesh detection; per-part semantic IDs
-- Staged material/color selections and a single Apply Design action
-- Client-side front/back/left/right PNG camera exports from the same scene
-- Photo upload and server-side GPT architectural observations via /api/analyze (requires API key); no pixel masks or reconstruction yet
+## Current working prototype
+
+- A procedural demonstration house in Three.js (**not reconstructed** from an uploaded photo)
+- Semantic selectable mesh categories: siding, roof, trim, garage
+- Material changes staged in the React sidebar and applied in one operation
+- Four PNG captures from the same rendered demonstration model
+- Real photo upload to `POST /api/analyze` using the **Gemini Developer API**, not OpenAI
+- A JSON result pane showing architectural observations and missing elevation views
+
+## AI analysis contract
+
+Frontend: `app/page.tsx` uploads multipart form data named `photo` to `/api/analyze`.
+Backend: `app/api/analyze/route.ts` validates JPEG/PNG/WebP up to 8 MB, sends the image from the server to Google's `generateContent` REST API, requests JSON output, validates expected properties, and returns `{ analysis, model }`.
+
+`analysis` fields:
+- `building_summary`
+- `photo_view`
+- `visible_components[]` with `component, count, notes, confidence`
+- `missing_views[]`
+- `reconstruction_notes[]`
+
+This is **not** a segmentation mask, polygon boundary, CAD drawing, measured elevation, or 3D mesh.
 
 ## Planned production pipeline
-1. Upload authorized front/back/left/right house photos to private object storage.
-2. OpenAI vision request produces a *structured architectural description* (not a 3D mesh).
-3. Segmentation service creates individual exterior surface masks; humans can correct them.
-4. Reconstruction worker estimates camera poses and creates/edits semantic mesh objects; record uncertainty for hidden faces.
-5. Three.js loads one consistent GLB model, each mesh with a stable `componentId` and `semanticClass`.
-6. Users stage changes locally; apply all material selections in one batch. Optional server image-edit pass improves photorealism but must not modify architecture.
-7. Export four orthographic/elevation PNGs from the same rendered scene. If sides are unseen, mark geometry estimated rather than assert accuracy.
 
-## Security
-- Never put OPENAI_API_KEY into NEXT_PUBLIC_* or client bundles.
-- The analysis endpoint makes a server-side OpenAI Responses API call using OPENAI_API_KEY from .env.local. Do not commit secrets. Add authentication, abuse protection, rate limits, privacy controls and persistence before public deployment.
-- Do not commit customer photos, corporate assets, or proprietary materials.
-- Product/color sample values in the demo are illustrative and not a verified catalog.
+1. Accept consented front/back/left/right home photographs, detect which elevations are available.
+2. Estimate visible features and camera viewpoints using an image-understanding model.
+3. Run a dedicated segmentation model for per-surface masks; provide user correction tools.
+4. Estimate camera poses and assemble a consistent semantic 3D mesh; mark unknown back/side geometry rather than inventing it.
+5. Load the resulting GLB with per-object `componentId` and `semanticClass` in Three.js.
+6. Allow hover/selection of individual surfaces and assignment of validated James Hardie product data.
+7. Apply staged changes to the model; optional photorealistic rendering after confirmation.
+8. Export front, rear, left, and right PNGs from one consistent 3D model.
+
+## Operational and privacy guardrails
+
+- Required server environment variables: `GEMINI_API_KEY`, optional `GEMINI_MODEL` (defaults to `gemini-2.5-flash-lite`).
+- `.env.local` must be kept out of source control; never use `NEXT_PUBLIC_` for the API key.
+- Free-tier Gemini image requests may be used to improve Google's products. Do not use confidential James Hardie or homeowner content on the free tier without approval.
+- The API has provider quotas. Production needs authentication, quotas, rate limiting, and consent/privacy handling.
+- No specific James Hardie material may be inferred as a fact from an arbitrary photograph.
+- The demo has no actual branded product imagery, verified finishes, or measurement accuracy guarantees.
