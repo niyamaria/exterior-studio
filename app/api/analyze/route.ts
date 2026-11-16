@@ -165,8 +165,16 @@ export async function POST(request: NextRequest) {
         );
       }
       console.error("Gemini analysis API failed:", response.status, errorCode, providerMessage);
+      // A provider message may contain sensitive request information. Return only
+      // safe, actionable status details to the browser; keep diagnostics server-side.
+      if (response.status === 401 || response.status === 403) {
+        return NextResponse.json(
+          { error: `Gemini access denied (HTTP ${response.status}, ${errorCode || "permission error"}) for "${model}". Verify your API key, project API access, and model availability in Google AI Studio. Check the terminal for details.` },
+          { status: 502 }
+        );
+      }
       return NextResponse.json(
-        { error: "Gemini couldn't analyze the photo. Check API key permissions and server logs." },
+        { error: `Gemini service error (HTTP ${response.status}, ${errorCode || "provider error"}) for "${model}". See the VS Code terminal for details.` },
         { status: 502 }
       );
     }
