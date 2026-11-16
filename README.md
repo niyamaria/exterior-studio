@@ -53,3 +53,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the development roadmap.
 ## Visual quality improvements
 
 The schematic 3D generator now produces attached sloped roof planes and gable walls, board-and-batten-style siding relief, window frames and mullions, segmented garage door panels, and a porch beam/canopy where posts are detected. We adjusted the camera and lighting for a more useful facade view. These are still **procedural estimates**, not photo-exact reconstructed surfaces. The model layout depends on how accurately Gemini estimates front-facade normalized boxes. Unseen sides/rear remain hypothetical; a production-grade visualizer needs explicit photo segmentation, camera pose estimation, multiple views, and local editing controls.
+
+## Temporary Gemini 503 errors
+
+Google sometimes returns `503 UNAVAILABLE` when its model is overloaded. Both photo analysis and scene planning now automatically retry up to **3 total attempts** with short exponential backoff for transient 5xx errors. The backend does not change the configured model or enable billing. If all attempts fail, the interface shows a clear temporary-overload message. These are provider-side errors, **not** invalid API keys. A `429` response means a separate quota or rate-limit issue and is not retried by this helper.
