@@ -49,3 +49,7 @@ Independent student research prototype for a James Hardie-inspired homeowner des
 Automatic pixel-level segmentation masks, accurate multi-view photo-to-3D reconstruction, real James Hardie product textures or licensing, photorealistic AI re-rendering, persistent projects, or ZIP exports. Side and rear elevations in a front-only upload are always unverified placeholders.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the development roadmap.
+
+## Visual quality improvements
+
+The schematic 3D generator now produces attached sloped roof planes and gable walls, board-and-batten-style siding relief, window frames and mullions, segmented garage door panels, and a porch beam/canopy where posts are detected. We adjusted the camera and lighting for a more useful facade view. These are still **procedural estimates**, not photo-exact reconstructed surfaces. The model layout depends on how accurately Gemini estimates front-facade normalized boxes. Unseen sides/rear remain hypothetical; a production-grade visualizer needs explicit photo segmentation, camera pose estimation, multiple views, and local editing controls.
