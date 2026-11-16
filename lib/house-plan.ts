@@ -13,7 +13,7 @@ export function isHousePlan(value:unknown):value is HousePlan {
  if(!value||typeof value!=="object")return false;
  const p=value as Partial<HousePlan>;
  const kinds=["window","entry_door","garage_door"];
- return Number.isInteger(p.stories) && typeof p.stories==="number" && p.stories >= 1 && p.stories <= 3 &&
+ return typeof p.stories==="number" && Number.isInteger(p.stories) && p.stories >= 1 && p.stories <= 3 &&
   ["gable","hip","shed","flat"].includes(String(p.roof_type)) &&
   ["front_to_back","left_to_right"].includes(String(p.roof_ridge_direction)) &&
   ["low","medium","steep"].includes(String(p.roof_pitch)) &&
