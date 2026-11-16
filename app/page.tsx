@@ -3,6 +3,8 @@ import {useEffect,useRef,useState} from "react";
 import * as THREE from "three";
 
 type Part="siding"|"roof"|"trim"|"garage";
+type Observation={component:string;count:number;notes:string;confidence:"high"|"medium"|"low"};
+type Analysis={building_summary:string;photo_view:string;visible_components:Observation[];missing_views:string[];reconstruction_notes:string[]};
 const palette:Record<Part,string[]>={siding:["#d9d3c4","#a4b1a6","#5c7381","#b58f77"],roof:["#383d43","#6a6461","#87715b"],trim:["#f3efe4","#ced1c9","#373e43"],garage:["#4c5256","#f2ece0","#9c9588"]};
 const labels:Record<Part,string>={siding:"Main siding",roof:"Roof",trim:"Exterior trim",garage:"Garage door"};
 const defaults:Record<Part,string>={siding:"#d9d3c4",roof:"#383d43",trim:"#f3efe4",garage:"#4c5256"};
@@ -31,6 +33,10 @@ export default function Home(){
  const [selected,setSelected]=useState<Part>("siding");const [pending,setPending]=useState<Record<Part,string>>(defaults);
  const [applied,setApplied]=useState<Record<Part,string>>(defaults);const [busy,setBusy]=useState(false);
  const [photoName,setPhotoName]=useState("");const [hover,setHover]=useState("");
+ const [photoFile,setPhotoFile]=useState<File|null>(null);
+ const [analysis,setAnalysis]=useState<Analysis|null>(null);
+ const [analyzing,setAnalyzing]=useState(false);
+ const [analysisError,setAnalysisError]=useState("");
  useEffect(()=>{const hostEl=host.current;if(!hostEl)return;
  const scene=new THREE.Scene();scene.background=new THREE.Color("#e8e8e0");
  const camera=new THREE.PerspectiveCamera(45,1,.1,150);
@@ -49,12 +55,28 @@ export default function Home(){
  const wheel=(e:WheelEvent)=>{e.preventDefault();controls.dist=Math.min(45,Math.max(10,controls.dist+e.deltaY*.013));redraw()};renderer.domElement.addEventListener("wheel",wheel,{passive:false});
  return()=>{renderer.domElement.removeEventListener("pointerdown",onDown);renderer.domElement.removeEventListener("pointermove",onMove);renderer.domElement.removeEventListener("pointerup",onUp);renderer.domElement.removeEventListener("click",onClick);renderer.domElement.removeEventListener("wheel",wheel);renderer.dispose();hostEl.removeChild(renderer.domElement);sceneRef.current=null};
  },[]);
+ async function analyzePhoto(){
+  if(!photoFile)return;
+  setAnalyzing(true);setAnalysisError("");setAnalysis(null);
+  try{
+    const body=new FormData();body.append("photo",photoFile);
+    const result=await fetch("/api/analyze",{method:"POST",body});
+    const json=await result.json();
+    if(!result.ok)throw new Error(json.error||"Image analysis failed.");
+    setAnalysis(json.analysis as Analysis);
+  }catch(error){setAnalysisError(error instanceof Error?error.message:"Image analysis failed.")}
+  finally{setAnalyzing(false)}
+ }
  function apply(){const x=sceneRef.current;if(!x)return;x.group.traverse(obj=>{if(obj instanceof THREE.Mesh&&obj.userData.category){const cat=obj.userData.category as Part; if(obj.name.includes("glazing")||obj.name.includes("entry door"))return; const m=obj.material as THREE.MeshStandardMaterial;m.color.set(pending[cat]);}});x.renderer.render(x.scene,x.camera);setApplied({...pending})}
  function downloadView(name:string,pose:readonly number[]){const x=sceneRef.current;if(!x)return;const old=x.camera.position.clone(),q=x.camera.quaternion.clone();const w=x.renderer.domElement.width,h=x.renderer.domElement.height;x.camera.position.set(pose[0],pose[2],pose[1]);x.camera.lookAt(0,3,0);x.renderer.render(x.scene,x.camera);const a=document.createElement("a");a.href=x.renderer.domElement.toDataURL("image/png");a.download=`exterior-studio-${name}.png`;a.click();x.camera.position.copy(old);x.camera.quaternion.copy(q);x.renderer.render(x.scene,x.camera)}
  function exportAll(){setBusy(true);views.forEach(([name,pose],i)=>setTimeout(()=>{downloadView(name,pose);if(i===3)setBusy(false)},i*380))}
  return <main className="app"><header><div className="brand"><span className="brandmark">◈</span><div><strong>EXTERIOR STUDIO</strong><small>Architectural design workspace</small></div></div><nav><span className="active">01 &nbsp; Design</span><span>02 &nbsp; Review</span><span>03 &nbsp; Export</span></nav><span className="pill">Prototype</span></header>
- <div className="heading"><div><span className="eyebrow">YOUR HOME, REIMAGINED</span><h1>Make every detail yours.</h1><p>Explore exterior finishes and stage your changes, then apply your design in one step.</p></div><label className="upload">+ Add reference photo<input type="file" accept="image/*" onChange={e=>setPhotoName(e.target.files?.[0]?.name||"")}/></label></div>
- {photoName&&<div className="notice">Uploaded reference: <b>{photoName}</b> · Photo-to-3D reconstruction is not connected yet; the viewer below remains a demonstration model.</div>}
+ <div className="heading"><div><span className="eyebrow">YOUR HOME, REIMAGINED</span><h1>Make every detail yours.</h1><p>Explore exterior finishes and stage your changes, then apply your design in one step.</p></div><label className="upload">+ Add reference photo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>{const file=e.target.files?.[0]||null;setPhotoFile(file);setPhotoName(file?.name||"");setAnalysis(null);setAnalysisError("");}}/></label></div>
+ {photoName&&<section className="analysis-panel">
+ <div className="analysis-intro"><div><span className="eyebrow">AI IMAGE ANALYSIS</span><h2>Understand your reference photo</h2><p><strong>{photoName}</strong> · Vision analysis finds architectural elements; it does not yet generate pixel masks or reconstruct the house.</p></div><button className="dark" disabled={analyzing} onClick={analyzePhoto}>{analyzing?"Analyzing photograph…":"Analyze house photo →"}</button></div>
+ {analysisError&&<p className="analysis-error" role="alert">{analysisError}</p>}
+ {analysis&&<div className="analysis-results"><div><strong>{analysis.building_summary}</strong><p>Likely viewpoint: {analysis.photo_view}</p><h3>Visible architectural components</h3><div className="detected-grid">{analysis.visible_components.map((item,i)=><div className="detected" key={i}><strong>{item.component}</strong><span>Count: {item.count} · {item.confidence} confidence</span><p>{item.notes}</p></div>)}</div></div><div className="analysis-notes"><h3>Reconstruction readiness</h3><p>Suggested additional views: {analysis.missing_views.length?analysis.missing_views.join(", "):"None specified"}</p><ul>{analysis.reconstruction_notes.map((note,i)=><li key={i}>{note}</li>)}</ul><p><strong>Current viewer:</strong> still the procedural demonstration house, not geometry made from this photo.</p></div></div>}
+ </section>}
  <section className="workspace"><div className="viewer"><div className="viewer-head"><span className="tag">INTERACTIVE 3D PREVIEW</span><span className="muted">Drag to orbit · Scroll to zoom · Click components</span></div><div ref={host} className="canvas"/><div className="viewer-foot"><span>{hover?"Hovering: "+hover:"Demo house • Not generated from your photo"}</span><span>Single consistent 3D scene</span></div></div>
  <aside><div className="panel-heading"><span className="eyebrow">MATERIAL STUDIO</span><h2>Customize surfaces</h2><p>Choose a component to edit.</p></div><div className="categories">{(Object.keys(labels) as Part[]).map(c=><button key={c} className={selected===c?"cat selected":"cat"} onClick={()=>setSelected(c)}>{labels[c]}</button>)}</div><div className="selection"><span className="eyebrow">SELECTED</span><h3>{labels[selected]}</h3><p>Illustrative colors; verified James Hardie catalog integration is planned.</p><div className="swatches">{palette[selected].map(color=><button aria-label={color} title={color} key={color} className={pending[selected]===color?"swatch chosen":"swatch"} style={{backgroundColor:color}} onClick={()=>setPending(v=>({...v,[selected]:color}))}/>)}</div></div><div className="summary"><span>Staged changes</span><strong>{(Object.keys(labels) as Part[]).filter(c=>pending[c]!==applied[c]).length}</strong></div><button className="primary" onClick={apply}>Apply My Design →</button><p className="help">One click applies all staged material changes to the 3D model. AI photorealistic refinement is a later integration.</p></aside></section>
  <section className="export"><div><span className="eyebrow">FINAL DELIVERABLE</span><h2>Four views. One design.</h2><p>Download front, back, left and right PNG captures from this same demo model.</p></div><button className="dark" disabled={busy} onClick={exportAll}>{busy?"Preparing captures…":"Export 4 PNG views ↓"}</button></section><footer>Exterior Studio · Independent research prototype, not an official James Hardie application.</footer></main>
