@@ -89,7 +89,7 @@ export default function Home(){
   }
   if(housePlan||blenderUrl){
    const effectivePlan:HousePlan={...(housePlan||{stories:1,roof_type:"gable",roof_color:"#464646",siding_color:"#ebe8e3",roof_ridge_direction:"front_to_back",roof_pitch:"medium",openings:[],porch_posts:[],architectural_notes:"Imported reference model"} as HousePlan),
-     roof_ridge_direction:roofCorrection==="auto"?housePlan.roof_ridge_direction:roofCorrection,
+     roof_ridge_direction:roofCorrection==="auto"?(housePlan?.roof_ridge_direction||"front_to_back"):roofCorrection,
      openings:mirrorFacade?housePlan?.openings.map(o=>({...o,x:1-o.x-o.width}))||[]:housePlan?.openings||[],
      porch_posts:mirrorFacade?housePlan?.porch_posts.map(x=>1-x)||[]:housePlan?.porch_posts||[]};
    if(!blenderUrl){buildPhotoHouse(x.group,effectivePlan,applied);}
@@ -100,7 +100,7 @@ export default function Home(){
       for(const obj of [...x.group.children])x.group.remove(obj);
       gltf.scene.traverse(obj=>{
         if(obj instanceof THREE.Mesh){
-          const semantic=String(obj.userData.semantic_class || obj.parent?.userData.semantic_class || obj.name.split("__")[0] || "").toLowerCase();
+          const semantic=String(obj.userData.semantic_class || obj.parent?.userData.semantic_class || obj.name.split("__")[0] || obj.parent?.name.split("__")[0] || "").toLowerCase();
           const category=semantic==="door"||semantic==="window"?"trim":semantic;
           obj.userData.category=["siding","roof","trim","garage","shutter","gutter"].includes(category)?category:undefined;
           if(Array.isArray(obj.material))obj.material=obj.material.map(m=>m.clone());else obj.material=obj.material.clone();
