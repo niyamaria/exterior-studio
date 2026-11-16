@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchGeminiWithRetry } from "../../../lib/gemini-retry";
 import { isHousePlan, type HousePlan } from "../../../lib/house-plan";
 
 export const runtime = "nodejs";
@@ -37,7 +38,7 @@ export async function POST(request:NextRequest) {
  const abort=new AbortController();
  const timer=setTimeout(()=>abort.abort(),60000);
  try {
-  const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
+  const response=await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
     method:"POST",
     headers:{"Content-Type":"application/json","x-goog-api-key":key},
     signal:abort.signal,
@@ -51,6 +52,7 @@ export async function POST(request:NextRequest) {
   });
   const payload=await response.json();
   if(!response.ok){
+    if(response.status===503||response.status===502||response.status===504)return NextResponse.json({error:"Gemini is temporarily overloaded. The request was automatically retried 3 times. Please try again later."},{status:503});
     const msg=String(payload?.error?.message||"Check Gemini project/model access.").slice(0,350);
     return NextResponse.json({error:response.status===429?"Gemini free-tier rate limit reached; retry later.":`Gemini returned ${response.status}: ${msg}`},{status:response.status===429?429:502});
   }
