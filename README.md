@@ -95,3 +95,15 @@ mkdir -p output
 See [the complete implementation and JSON schema guide](docs/GEMINI_BLENDER_PIPELINE.md) for details.
 
 **Fidelity limitation:** This uses procedural geometry from estimated layout, **not** an exact reconstruction of an uploaded house. The script creates semantic objects but does not produce image segmentation masks or fully recover hidden elevations. Use multiple real photos and manually review the detected positions.
+
+## Visual refinement — soft shadows and two front gables
+
+- Three.js now uses softer, higher studio lighting, stronger hemisphere fill, ACES tone mapping and softened shadow sampling.
+- The imported Blender lawn/driveway no longer cast or receive enormous hard-edged shadows. The house still casts local architectural shadows.
+- The Blender generator places the **largest detected gable farther back and taller**, and secondary gables farther forward and lower; the rear roof volume is less visually dominant.
+- Upper-story/gable windows detected in the dominant gable can sit above the main ground-floor wall instead of being clamped below the eave.
+- The porch header/soffit is thinner; driveway dimensions/colors are toned down.
+- Gemini scene-planning instructions emphasize visible left-to-right orientation and separate gable peaks.
+
+**Retest:** `git pull`, restart `npm run dev`, and run **Build with Blender** again after generating a house plan. Previously downloaded GLBs are static and won't automatically gain these changes. The geometry is still approximate; pixel-aligned facade masks and manual vertex corrections remain future work.
+
