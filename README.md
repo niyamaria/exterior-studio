@@ -10,7 +10,7 @@ Independent student research prototype for a James Hardie-inspired homeowner des
 4. Sign in to [Google AI Studio](https://aistudio.google.com/api-keys), create a Gemini Developer API key in an eligible free-tier project, and paste it into `.env.local`:
    ```env
    GEMINI_API_KEY=your_actual_key_here
-   GEMINI_MODEL=gemini-2.5-flash-lite
+   GEMINI_MODEL=gemini-3.5-flash-lite
    ```
 5. Run `npm run dev` (restart if you changed `.env.local` while the server was open).
 6. Go to <http://localhost:3000>.
@@ -35,7 +35,7 @@ Independent student research prototype for a James Hardie-inspired homeowner des
 
 ## Free tier, security, and privacy
 
-- The default `gemini-2.5-flash-lite` has free-tier image/text requests according to Google's pricing, **subject to account eligibility, model availability, quotas, and rate limits**. Check [current pricing](https://ai.google.dev/gemini-api/docs/pricing) and your Google AI Studio project before using it.
+- The default `gemini-3.5-flash-lite` has free-tier image/text requests according to Google's pricing, **subject to account eligibility, model availability, quotas, and rate limits**. Check [current pricing](https://ai.google.dev/gemini-api/docs/pricing) and your Google AI Studio project before using it.
 - **Google can use content submitted through its free tier to improve its products.** Do not submit private homeowner photos, confidential partner materials, or other sensitive/corporate content without permission.
 - Store `GEMINI_API_KEY` **only** in local `.env.local` or server-side deployment secrets. Never put it in `NEXT_PUBLIC_*`, frontend JavaScript, screenshots, or GitHub. `.env.local` is gitignored.
 - The demo endpoint is for local development. Add authentication, rate limiting, and usage controls before public deployment.
