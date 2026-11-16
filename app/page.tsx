@@ -45,11 +45,11 @@ export default function Home(){
  const [referenceUrl,setReferenceUrl]=useState<string|null>(null);
  useEffect(()=>{if(!photoFile){setReferenceUrl(null);return;}const src=URL.createObjectURL(photoFile);setReferenceUrl(src);return()=>URL.revokeObjectURL(src)},[photoFile]);
  useEffect(()=>{const hostEl=host.current;if(!hostEl)return;
- const scene=new THREE.Scene();scene.background=new THREE.Color("#e8e8e0");
+ const scene=new THREE.Scene();scene.background=new THREE.Color("#dfe8eb");
  const camera=new THREE.PerspectiveCamera(45,1,.1,150);
  const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;hostEl.appendChild(renderer.domElement);
- scene.add(new THREE.HemisphereLight(0xffffff,0xa4a8ac,2.1));const light=new THREE.DirectionalLight(0xffffff,2.1);light.position.set(-6,17,-12);light.castShadow=true;scene.add(light);
- const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({color:"#d2d3c8"}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+ scene.add(new THREE.HemisphereLight(0xffffff,0xa9b4b7,1.45));const light=new THREE.DirectionalLight(0xfff4e8,2.45);light.position.set(-9,14,-13);light.castShadow=true;light.shadow.mapSize.set(2048,2048);light.shadow.camera.left=-25;light.shadow.camera.right=25;light.shadow.camera.top=25;light.shadow.camera.bottom=-25;scene.add(light);
+ const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({color:"#c7cec0",roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
  const group=new THREE.Group();scene.add(group);makeHouse(group);
  const controls={az:-.68,el:.30,dist:21};sceneRef.current={scene,camera,renderer,group,controls};
  const target=new THREE.Vector3(0,3,0);const redraw=()=>{camera.position.set(target.x+Math.sin(controls.az)*Math.cos(controls.el)*controls.dist,target.y+Math.sin(controls.el)*controls.dist,target.z-Math.cos(controls.az)*Math.cos(controls.el)*controls.dist);camera.lookAt(target);renderer.render(scene,camera);};
@@ -74,7 +74,7 @@ export default function Home(){
   }
   if(housePlan){
    buildPhotoHouse(x.group,housePlan,applied);
-   x.controls.az=-.38;x.controls.el=.22;x.controls.dist=25;
+   x.controls.az=-.14;x.controls.el=.14;x.controls.dist=24;
   }else{
    makeHouse(x.group);
    x.controls.az=-.68;x.controls.el=.30;x.controls.dist=21;
