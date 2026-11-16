@@ -8,6 +8,8 @@
 - Four PNG captures from the same rendered demonstration model
 - Real photo upload to `POST /api/analyze` using the **Gemini Developer API**, not OpenAI
 - A JSON result pane showing architectural observations and missing elevation views
+- A second Gemini endpoint (`POST /api/scene-plan`) that estimates normalized front-facade layout
+- A procedural Three.js builder (`lib/build-house.ts`) that replaces the default house with editable schematic wall, roof, door, window, garage and porch-post meshes; depth and unseen elevations remain placeholders
 
 ## AI analysis contract
 
@@ -21,7 +23,7 @@ Backend: `app/api/analyze/route.ts` validates JPEG/PNG/WebP up to 8 MB, sends th
 - `missing_views[]`
 - `reconstruction_notes[]`
 
-This is **not** a segmentation mask, polygon boundary, CAD drawing, measured elevation, or 3D mesh.
+The analysis response is **not** a segmentation mask, polygon boundary, CAD drawing, or measured elevation. A separate schematic plan request creates rough 3D meshes from estimated normalized facade boxes, but those meshes are **not** a verified reconstruction or product-ready CAD model.
 
 ## Planned production pipeline
 
