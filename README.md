@@ -67,3 +67,31 @@ After **Generate schematic 3D**, use **Fine-tune the house layout**:
 - Material previews and the four PNG exports use the corrected live Three.js scene.
 
 This improves the *schematic interpretation* but does not guarantee an architectural match, reconstruct hidden sides, or implement pixel masks. For higher accuracy, the next milestone is image-aligned mask extraction plus manual editable control points (roof vertices and opening bounding boxes).
+
+
+## Gemini → Blender → GLB (new)
+
+Exterior Studio now has a local Blender generation path in addition to the quick Three.js schematic:
+
+1. **Analyze house photo** → Gemini architectural observations.
+2. **Generate schematic 3D** → Gemini returns a structured front-facade plan with opening coordinates, roof orientation, siding style and optional front gables.
+3. **Fine-tune the house layout** → adjust orientation without more API calls.
+4. **Build with Blender** → the local Next.js backend starts installed Blender in background and constructs real, named semantic meshes.
+5. The site loads the resulting **GLB** into the existing Three.js viewer. Click to select elements, apply material changes and export PNG views; click **Download GLB** to keep the model.
+
+**Blender installation:** Place Blender in `/Applications/Blender.app`, or set `BLENDER_EXECUTABLE` to its full executable path in your local `.env.local`. Restart `npm run dev` when changing configuration. This worker runs only in local development, **not** on Vercel.
+
+**Test without using Gemini credits:**
+
+```bash
+mkdir -p output
+/Applications/Blender.app/Contents/MacOS/Blender --background \
+  --python scripts/blender/generate_house_from_plan.py -- \
+  --plan examples/house-plan.example.json \
+  --out output/sample-house.glb \
+  --blend output/sample-house.blend
+```
+
+See [the complete implementation and JSON schema guide](docs/GEMINI_BLENDER_PIPELINE.md) for details.
+
+**Fidelity limitation:** This uses procedural geometry from estimated layout, **not** an exact reconstruction of an uploaded house. The script creates semantic objects but does not produce image segmentation masks or fully recover hidden elevations. Use multiple real photos and manually review the detected positions.
