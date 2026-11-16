@@ -8,6 +8,9 @@ export type HousePlan = {
   openings:Array<{kind:"window"|"entry_door"|"garage_door";x:number;y:number;width:number;height:number}>;
   porch_posts:number[];
   architectural_notes:string;
+  garage_side?:"left"|"right"|"none";
+  siding_style?:"board_and_batten"|"lap"|"stucco"|"other";
+  front_gables?:Array<{center_x:number;width:number;height_ratio:number}>;
 };
 export function isHousePlan(value:unknown):value is HousePlan {
  if(!value||typeof value!=="object")return false;
@@ -20,6 +23,7 @@ export function isHousePlan(value:unknown):value is HousePlan {
   typeof p.siding_color==="string" && typeof p.roof_color==="string" &&
   typeof p.architectural_notes==="string" &&
   Array.isArray(p.porch_posts) && p.porch_posts.every(x=>typeof x==="number"&&Number.isFinite(x)) &&
+  (p.front_gables===undefined || (Array.isArray(p.front_gables) && p.front_gables.every(g=>[g.center_x,g.width,g.height_ratio].every(x=>Number.isFinite(x))))) &&
   Array.isArray(p.openings) && p.openings.every(o=>o&&kinds.includes(o.kind) &&
     [o.x,o.y,o.width,o.height].every(x=>typeof x==="number"&&Number.isFinite(x)));
 }
