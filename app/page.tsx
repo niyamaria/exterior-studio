@@ -119,8 +119,15 @@ export default function Home(){
   if(!housePlan)return;
   setBlenderBusy(true);setBlenderError("");
   try{
+   const corrected:HousePlan={...housePlan,
+     roof_ridge_direction:roofCorrection==="auto"?housePlan.roof_ridge_direction:roofCorrection,
+     openings:mirrorFacade?housePlan.openings.map(o=>({...o,x:1-o.x-o.width})):housePlan.openings,
+     porch_posts:mirrorFacade?housePlan.porch_posts.map(v=>1-v):housePlan.porch_posts,
+     front_gables:mirrorFacade?housePlan.front_gables?.map(g=>({...g,center_x:1-g.center_x})):housePlan.front_gables,
+     garage_side:mirrorFacade?(housePlan.garage_side==="left"?"right":housePlan.garage_side==="right"?"left":housePlan.garage_side):housePlan.garage_side
+   };
    const response=await fetch("/api/build-blender",{
-     method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(housePlan)
+     method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(corrected)
    });
    if(!response.ok){const error=await response.json();throw new Error(error.error||"Blender generation failed.");}
    const blob=await response.blob();
