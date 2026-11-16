@@ -32,7 +32,7 @@ function makeHouse(group:THREE.Group){
  for(let k=0;k<2;k++){const geometry=new THREE.BufferGeometry();const o=k*12;geometry.setAttribute("position",new THREE.BufferAttribute(verts.slice(o,o+12),3));geometry.setIndex([0,1,2,0,2,3]);geometry.computeVertexNormals();const m=new THREE.Mesh(geometry,roofMaterial.clone());m.name=k?"Right roof":"Left roof";m.userData.category="roof";m.castShadow=true;group.add(m);}
 }
 export default function Home(){
- const host=useRef<HTMLDivElement>(null);const sceneRef=useRef<{scene:THREE.Scene;camera:THREE.PerspectiveCamera;renderer:THREE.WebGLRenderer;group:THREE.Group;controls:{az:number,el:number,dist:number};} |null>(null);
+ const host=useRef<HTMLDivElement>(null);const sceneRef=useRef<{scene:THREE.Scene;camera:THREE.PerspectiveCamera;renderer:THREE.WebGLRenderer;group:THREE.Group;controls:{az:number,el:number,dist:number};target:THREE.Vector3;} |null>(null);
  const [selected,setSelected]=useState<Part>("siding");const [pending,setPending]=useState<Record<Part,string>>(defaults);
  const [applied,setApplied]=useState<Record<Part,string>>(defaults);const [busy,setBusy]=useState(false);
  const [photoName,setPhotoName]=useState("");const [hover,setHover]=useState("");
@@ -66,8 +66,7 @@ export default function Home(){
  light.shadow.camera.left=-13;light.shadow.camera.right=13;light.shadow.camera.top=13;light.shadow.camera.bottom=-13;light.shadow.camera.near=1;light.shadow.camera.far=58;scene.add(light);
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({color:"#d3d7c9",roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=false;scene.add(ground);
  const group=new THREE.Group();scene.add(group);makeHouse(group);
- const controls={az:-.68,el:.30,dist:21};sceneRef.current={scene,camera,renderer,group,controls};
- const target=new THREE.Vector3(0,3,0);const redraw=()=>{camera.position.set(target.x+Math.sin(controls.az)*Math.cos(controls.el)*controls.dist,target.y+Math.sin(controls.el)*controls.dist,target.z-Math.cos(controls.az)*Math.cos(controls.el)*controls.dist);camera.lookAt(target);renderer.render(scene,camera);};
+ const controls={az:-.68,el:.30,dist:21};const target=new THREE.Vector3(0,3,0);sceneRef.current={scene,camera,renderer,group,controls,target};const redraw=()=>{camera.position.set(target.x+Math.sin(controls.az)*Math.cos(controls.el)*controls.dist,target.y+Math.sin(controls.el)*controls.dist,target.z-Math.cos(controls.az)*Math.cos(controls.el)*controls.dist);camera.lookAt(target);renderer.render(scene,camera);};
  const resize=()=>{const w=hostEl.clientWidth,h=hostEl.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();redraw();};new ResizeObserver(resize).observe(hostEl);resize();
  let down=false,lx=0,ly=0;
  const onDown=(e:PointerEvent)=>{down=true;lx=e.clientX;ly=e.clientY;renderer.domElement.setPointerCapture(e.pointerId)};
@@ -111,7 +110,50 @@ export default function Home(){
           obj.castShadow=!sitePart;obj.receiveShadow=!sitePart;
         }
       });
+      // Some older procedural GLBs are authored in Z-up coordinates even
+      // though glTF viewers, including Three.js, use Y-up. Detect the floor
+      // plane in the imported geometry, then rotate the whole model once.
+      // Native Blender glTF exports already have Y-up and stay unchanged.
+      const floor = {mesh: null as THREE.Mesh|null};
+      gltf.scene.traverse(obj=>{
+        if(obj instanceof THREE.Mesh && /(?:GROUND|LAWN|SITE__lawn)/i.test(obj.name) && !floor.mesh)floor.mesh=obj;
+      });
+      let convertedLegacyZUp=false;
+      if(floor.mesh){
+        const planeBox=new THREE.Box3().setFromObject(floor.mesh);
+        const size=planeBox.getSize(new THREE.Vector3());
+        if(size.z < Math.min(size.x,size.y)*.12 && size.x>5 && size.y>5){
+          gltf.scene.rotation.x=-Math.PI/2;
+          convertedLegacyZUp=true;
+        }
+      }
+      gltf.scene.updateMatrixWorld(true);
       x.group.add(gltf.scene);
+      // Frame architectural meshes, not the 43 m lawn / driveway footprint.
+      const houseBounds=new THREE.Box3();
+      let count=0;
+      gltf.scene.traverse(obj=>{
+        if(!(obj instanceof THREE.Mesh))return;
+        const semantic=String(obj.userData.semantic_class||obj.name.split("__")[0]).toUpperCase();
+        if(["GROUND","LANDSCAPE","DRIVEWAY"].includes(semantic))return;
+        houseBounds.expandByObject(obj);count++;
+      });
+      if(!count)houseBounds.setFromObject(gltf.scene);
+      const center=houseBounds.getCenter(new THREE.Vector3());
+      const extent=houseBounds.getSize(new THREE.Vector3());
+      x.target.copy(center);
+      x.controls.dist=Math.max(16,Math.min(70,Math.max(extent.x,extent.y,extent.z)*1.9));
+      // The legacy house front is at original negative Y; after converting
+      // Z-up -> Y-up it faces positive world Z. Start facing that facade.
+      x.controls.az=convertedLegacyZUp?Math.PI-.36:-.32;
+      x.controls.el=.19;
+      x.camera.position.set(
+        center.x+Math.sin(x.controls.az)*Math.cos(x.controls.el)*x.controls.dist,
+        center.y+Math.sin(x.controls.el)*x.controls.dist,
+        center.z-Math.cos(x.controls.az)*Math.cos(x.controls.el)*x.controls.dist
+      );
+      x.camera.lookAt(center);
+      x.camera.updateProjectionMatrix();
       x.renderer.render(x.scene,x.camera);
     },undefined,e=>setBlenderError("The GLB was exported but could not load in Three.js. "+String(e)));
    }
@@ -120,8 +162,9 @@ export default function Home(){
    makeHouse(x.group);
    x.controls.az=-.68;x.controls.el=.30;x.controls.dist=21;
   }
+  x.target.set(0,3,0);
   x.camera.position.set(Math.sin(x.controls.az)*Math.cos(x.controls.el)*x.controls.dist,3+Math.sin(x.controls.el)*x.controls.dist,-Math.cos(x.controls.az)*Math.cos(x.controls.el)*x.controls.dist);
-  x.camera.lookAt(0,3,0);x.renderer.render(x.scene,x.camera);
+  x.camera.lookAt(x.target);x.renderer.render(x.scene,x.camera);
  // Rebuild only when a different photo plan is created or reset.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[housePlan,mirrorFacade,roofCorrection,blenderUrl]);
