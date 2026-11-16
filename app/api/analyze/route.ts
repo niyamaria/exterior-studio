@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchGeminiWithRetry } from "../../../lib/gemini-retry";
 
 export const runtime = "nodejs";
 
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
   const timeout = setTimeout(() => controller.abort(), 60000);
 
   try {
-    const response = await fetch(
+    const response = await fetchGeminiWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
         method: "POST",
@@ -167,6 +168,9 @@ export async function POST(request: NextRequest) {
       console.error("Gemini analysis API failed:", response.status, errorCode, providerMessage);
       // A provider message may contain sensitive request information. Return only
       // safe, actionable status details to the browser; keep diagnostics server-side.
+      if (response.status === 503 || response.status === 502 || response.status === 504) {
+        return NextResponse.json({ error: "Gemini is temporarily overloaded. Automatically retried the request 3 times without success. Please try again later." }, { status: 503 });
+      }
       if (response.status === 401 || response.status === 403) {
         return NextResponse.json(
           { error: `Gemini access denied (HTTP ${response.status}, ${errorCode || "permission error"}) for "${model}". Verify your API key, project API access, and model availability in Google AI Studio. Check the terminal for details.` },
