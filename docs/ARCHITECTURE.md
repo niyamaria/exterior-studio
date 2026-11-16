@@ -5,7 +5,7 @@
 - Click/hover mesh detection; per-part semantic IDs
 - Staged material/color selections and a single Apply Design action
 - Client-side front/back/left/right PNG camera exports from the same scene
-- Photo selection UI, but no image analysis or reconstruction yet
+- Photo upload and server-side GPT architectural observations via /api/analyze (requires API key); no pixel masks or reconstruction yet
 
 ## Planned production pipeline
 1. Upload authorized front/back/left/right house photos to private object storage.
@@ -18,6 +18,6 @@
 
 ## Security
 - Never put OPENAI_API_KEY into NEXT_PUBLIC_* or client bundles.
-- No API calls are implemented in this MVP; add server-only endpoints later.
+- The analysis endpoint makes a server-side OpenAI Responses API call using OPENAI_API_KEY from .env.local. Do not commit secrets. Add authentication, abuse protection, rate limits, privacy controls and persistence before public deployment.
 - Do not commit customer photos, corporate assets, or proprietary materials.
 - Product/color sample values in the demo are illustrative and not a verified catalog.
