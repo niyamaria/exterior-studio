@@ -104,7 +104,7 @@ export default function Home(){
           const category=semantic==="door"||semantic==="window"?"trim":semantic;
           obj.userData.category=["siding","roof","trim","garage","shutter","gutter"].includes(category)?category:undefined;
           if(Array.isArray(obj.material))obj.material=obj.material.map(m=>m.clone());else obj.material=obj.material.clone();
-          obj.userData.lockedMaterial=Boolean(obj.userData.locked_material||obj.parent?.userData.locked_material);
+          obj.userData.lockedMaterial=semantic==="window"||semantic==="door"||Boolean(obj.userData.locked_material||obj.parent?.userData.locked_material);
           const semanticType=semantic.toLowerCase();
           const sitePart=["landscape","ground","driveway"].includes(semanticType);
           // No oversized cast shadows from lawn/driveway slabs.
