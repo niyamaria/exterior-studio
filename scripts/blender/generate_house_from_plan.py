@@ -152,7 +152,13 @@ def generate(plan):
     if plan.get("roof_type") == "flat":
         box("ROOF__flat_estimated", "roof", (0, 0, eave), (W + 1.1, D + 1.1, .20), roof, True)
     elif plan.get("roof_ridge_direction") == "front_to_back":
-        gable("MAIN", -W / 2, W / 2, H, ridge, FRONT, -FRONT, wall, roof, trim)
+        # Keep a low back roof mass when Gemini detected multiple visible gables.
+        # Otherwise the generic full-width triangle hides the actual two-gable silhouette.
+        if plan.get("front_gables"):
+            gable("REAR_ROOF_ESTIMATED", -W / 2, W / 2, H,
+                  H + .85, FRONT + 1.2, -FRONT, wall, roof, trim, True)
+        else:
+            gable("MAIN", -W / 2, W / 2, H, ridge, FRONT, -FRONT, wall, roof, trim)
     else:
         poly("ROOF__front_slope", "roof", [
             (-W / 2 - over, FRONT - over, eave),
@@ -165,13 +171,31 @@ def generate(plan):
             (W / 2 + over, -FRONT + over, eave),
             (-W / 2 - over, -FRONT + over, eave)], roof, True)
 
-    # Nested front-facing gables. Always modeled from explicit Gemini plan.
-    for i, g in enumerate(plan.get("front_gables", [])[:4]):
+    # Two-step farmhouse roofline:
+    # dominant front gable is higher and farther back; smaller garage gable
+    # projects forward. This ordering preserves visible intersections.
+    front_gables = plan.get("front_gables", [])[:4]
+    ordered = sorted(enumerate(front_gables),
+                     key=lambda pair: float(pair[1]["width"]), reverse=True)
+    dominant_idx = ordered[0][0] if ordered else -1
+    dominant_span = None
+    for i, g in ordered:
         cx = (float(g["center_x"]) - .5) * W
         gw = max(1.5, min(11.5, float(g["width"]) * W))
-        gr = H + max(.6, min(3.3, float(g["height_ratio"]) * H))
-        gable("CROSS_%02d" % i, cx - gw / 2, cx + gw / 2,
-              H + .04, gr, FRONT - 1.05, FRONT + 1.40, wall, roof, trim, True)
+        is_dominant = i == dominant_idx
+        ratio = max(.12, min(.8, float(g["height_ratio"])))
+        gr = H + max(1.30 if is_dominant else .80,
+                     min(3.45 if is_dominant else 2.15, ratio * H))
+        nose = FRONT - (.22 if is_dominant else 1.12)
+        tail = -FRONT if is_dominant else FRONT + 1.55
+        gable("PRIMARY_%02d" % i if is_dominant else "SECONDARY_%02d" % i,
+              cx - gw / 2, cx + gw / 2,
+              H + .06, gr, nose, tail, wall, roof, trim, True)
+        if is_dominant:
+            dominant_span = (cx - gw / 2, cx + gw / 2, nose, gr)
+
+    # Main roof upper gable window (if identified): position against the gable
+    # front face rather than clamping it to a ground-floor rectangular wall.
 
     # Predicted normalized front facade boxes: image-derived estimates only.
     for i, opening in enumerate(plan.get("openings", [])[:18]):
@@ -179,9 +203,21 @@ def generate(plan):
         x = (float(opening["x"]) + float(opening["width"]) / 2 - .5) * W
         w = max(.45, min(W * .6, float(opening["width"]) * W))
         h = max(.50, min(H * .82, float(opening["height"]) * H))
-        z = max(h / 2 + .04, min(H - h / 2 - .06,
-            (float(opening["y"]) + float(opening["height"]) / 2) * H))
-        front = FRONT - .22
+        normalized_center_y = float(opening["y"]) + float(opening["height"]) / 2
+        is_gable_window = (
+            kind == "window" and dominant_span is not None
+            and normalized_center_y > .63 and w < 1.5
+            and dominant_span[0] < x < dominant_span[1]
+        )
+        if is_gable_window:
+            z = H + min(1.18, (dominant_span[3] - H) * .45)
+            h = min(h, .69)
+            w = min(w, .70)
+            front = dominant_span[2] - .23
+        else:
+            z = max(h / 2 + .04, min(H - h / 2 - .06,
+                normalized_center_y * H))
+            front = FRONT - .22
         if kind == "garage_door":
             box("GARAGE__frame_%02d" % i, "trim", (x, front, z), (w + .27, .12, h + .22), trim)
             box("GARAGE__door_%02d" % i, "garage", (x, front - .10, z), (w, .11, h), garage)
@@ -215,13 +251,16 @@ def generate(plan):
             box("PORCH__base_%02d" % i, "trim", (x, depth, .14), (.29, .29, .28), trim)
         width = max(2.0, max(xs) - min(xs) + 1.15)
         middle = (max(xs) + min(xs)) / 2
-        box("PORCH__header", "trim", (middle, depth, pz), (width, .22, .19), trim)
-        box("PORCH__roof", "roof", (middle, FRONT - .85, pz + .16), (width + .22, 1.45, .14), roof, True)
+        # A light porch header, rather than a chunky floating flat roof.
+        box("PORCH__header", "trim", (middle, depth, pz),
+            (width, .18, .13), trim)
+        box("PORCH__soffit", "trim", (middle, FRONT - .93, pz + .10),
+            (width + .14, 1.17, .08), trim, True)
 
     box("SITE__lawn", "landscape", (0, 0, -.16), (22, 20, .22), "#73845a", True)
     box("SITE__driveway", "driveway",
         (-W * .26 if plan.get("garage_side") == "left" else W * .26, FRONT - 6, -.025),
-        (4.0, 11.5, .05), "#a4a7a2", True)
+        (3.6, 10.6, .045), "#b8b9b4", True)
 
     # Organize and preserve semantic metadata in GLB extras.
     camera_data = bpy.data.cameras.new("Camera_front")
