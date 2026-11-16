@@ -41,3 +41,10 @@
 .blender-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .blender-actions .upload{background:white}
 .blender-actions button:disabled{opacity:.65;cursor:wait}
+
+
+.reference-model-row{margin:0 4vw 22px;background:#f1f5ef;border:1px solid #d5e2d4;border-radius:9px;padding:15px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.reference-model-row div{display:flex;flex-direction:column;gap:5px}
+.reference-model-row strong{font-size:13px;color:#284937}
+.reference-model-row span{font-size:12px;line-height:1.6;color:#62766b}
+.reference-model-row .upload{background:white}
