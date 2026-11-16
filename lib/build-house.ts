@@ -95,6 +95,31 @@ export function buildPhotoHouse(group:THREE.Group,plan:HousePlan,colors:ColorMap
    beam(group,"Front ridge cap","roof",new THREE.Vector3(left,ridge,0),new THREE.Vector3(right,ridge,0),.10,.12,roof);
  }
 
+ // A smaller forward-projecting gable over a front garage is common in the
+ // reference farmhouse style. This is estimated geometry, not a measured feature.
+ // Build it only for front-facing gable layouts with a detected garage.
+ const garageOpening=plan.openings.find(o=>o.kind==="garage_door");
+ if(garageOpening && plan.roof_type!=="flat" && plan.roof_ridge_direction==="front_to_back"){
+   const garageX=(garageOpening.x+garageOpening.width/2-.5)*W;
+   const gw=Math.max(2.6,Math.min(5.5,garageOpening.width*W+1));
+   const gxLeft=Math.max(-W/2-.18,garageX-gw/2),gxRight=Math.min(W/2+.18,garageX+gw/2);
+   const crest=(gxLeft+gxRight)/2;
+   const yLow=H+.19, yHigh=H+Math.min(pitch*.73,1.7);
+   const nose=front-1.15, tail=F+.82;
+   quad(group,"Garage cross-gable left roof","roof",
+     [gxLeft,yLow,nose],[crest,yHigh,nose],[crest,yHigh,tail],[gxLeft,yLow,tail],roof,true);
+   quad(group,"Garage cross-gable right roof","roof",
+     [crest,yHigh,nose],[gxRight,yLow,nose],[gxRight,yLow,tail],[crest,yHigh,tail],roof,true);
+   polygon(group,"Garage cross-gable front siding","siding",
+     [gxLeft,H,nose+.05,crest,yHigh-.05,nose+.05,gxRight,H,nose+.05],wall,true);
+   beam(group,"Garage gable left rake","trim",
+     new THREE.Vector3(gxLeft,yLow,nose),new THREE.Vector3(crest,yHigh,nose),.14,.11,trim);
+   beam(group,"Garage gable right rake","trim",
+     new THREE.Vector3(crest,yHigh,nose),new THREE.Vector3(gxRight,yLow,nose),.14,.11,trim);
+   beam(group,"Garage gable horizontal fascia","trim",
+     new THREE.Vector3(gxLeft,yLow,nose),new THREE.Vector3(gxRight,yLow,nose),.12,.10,trim);
+ }
+ 
  // The visible facade openings are estimated 2D boxes aligned to a shared front plane.
  // They are overlays, not Boolean cutouts; geometry is explicitly schematic.
  const glassColor="#395663",doorColor="#725c49";
