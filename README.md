@@ -118,3 +118,9 @@ This model is available as the prior deliverable `real_reference_house_editable.
 The GLB has 287 semantic mesh nodes named like `SHUTTER__...`, `GARAGE__...` and `TRIM__...`. The Three.js loader now interprets node-name prefixes as semantic classes when custom properties are unavailable, and the material studio includes **Shutters** and **Gutters** categories.
 
 This is a **specific reference-based approximate reconstruction**, not an arbitrary photo-to-3D model. To generalize this fidelity, we need richer geometry extraction, per-photo semantic mask/landmark correction, and improvements to `scripts/blender/generate_house_from_plan.py`. Importing the previously built model is a controlled quality baseline, not automatic photo reconstruction.
+
+## Imported GLB appears sideways or upside down
+
+Some older procedural GLBs (including `real_reference_house_editable.glb`) encode **Z as the vertical axis**, while Three.js expects **Y-up**. Exterior Studio now detects a large XY-ground mesh in the imported GLB, rotates the asset into the web viewer's coordinate system, and automatically reframes the camera around the building rather than the oversized site plane. A front-facing three-quarter camera is chosen for this legacy house. Native Blender glTF files already exported Y-up should not be rotated.
+
+If you imported before updating, run `git pull`, restart `npm run dev`, refresh and **Import detailed GLB** again. This corrects the presentation transform; it does not alter the original GLB file.
