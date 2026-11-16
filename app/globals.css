@@ -25,3 +25,11 @@
 .generated-note{margin-top:14px;border:1px solid #d7e2d3;background:#f4f8f1;border-radius:8px;padding:14px 17px;font-size:12px;color:#46634a;line-height:1.6}
 .generated-note span{color:#7d715e}.generated-note p{margin:5px 0 0;font-size:12px;color:#6a7469}
 @media(max-width:650px){.generate-layout{flex-direction:column;align-items:stretch}.reference-preview{align-items:flex-start;flex-direction:column}}
+
+
+.geometry-corrections{margin-top:15px;padding:16px 18px;border-radius:9px;border:1px solid #c8d7ca;background:#f6f8f3;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
+.geometry-corrections strong{font-size:14px}.geometry-corrections p{font-size:12px;color:#63746a;margin:5px 0;line-height:1.55}
+.correction-controls{display:flex;align-items:center;gap:17px;flex-wrap:wrap}
+.correction-check,.correction-label{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#355346}
+.correction-check input{accent-color:#355346;width:17px;height:17px;cursor:pointer}
+.correction-label select{background:white;color:#374b3e;border:1px solid #c7d3c8;border-radius:6px;padding:9px 10px;font-size:12px;cursor:pointer}
