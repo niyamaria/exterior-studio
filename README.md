@@ -24,3 +24,17 @@ Interactive James Hardie-inspired home exterior visualization research prototype
 - Persistent accounts/projects, ZIP exports
 
 See `docs/ARCHITECTURE.md` for next development stages.
+
+## GPT house-photo analysis (new)
+
+The uploaded photo can now be sent to a **server-side OpenAI Responses API** endpoint for architectural observations. The result panel lists visible components, uncertainties, and additional viewpoints needed to produce a consistent 3D model.
+
+1. Copy `.env.example` to `.env.local`.
+2. Replace `replace_with_your_api_key` with an OpenAI Platform API key (API billing may apply).
+3. Restart `npm run dev`, upload a real house photo (JPG, PNG, or WebP; up to 8 MB), and click **Analyze house photo**.
+4. Review the detected architectural features below the upload area.
+
+The API key is read **only on the server** in `app/api/analyze/route.ts`; never share it in screenshots or commit `.env.local`.
+
+**Scope:** GPT currently produces textual architectural observations, *not pixel-perfect masks or a reconstructed 3D house*. The editable 3D viewer remains a procedural demo. The next stage will turn detected features into segmented surfaces and geometry, with multi-view validation.
+
