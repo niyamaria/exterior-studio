@@ -1,0 +1,64 @@
+{
+  "stories": 1,
+  "roof_type": "gable",
+  "roof_color": "#515961",
+  "siding_color": "#eeeae2",
+  "roof_ridge_direction": "front_to_back",
+  "roof_pitch": "medium",
+  "garage_side": "left",
+  "siding_style": "board_and_batten",
+  "front_gables": [
+    {
+      "center_x": 0.23,
+      "width": 0.33,
+      "height_ratio": 0.32
+    },
+    {
+      "center_x": 0.62,
+      "width": 0.67,
+      "height_ratio": 0.55
+    }
+  ],
+  "openings": [
+    {
+      "kind": "garage_door",
+      "x": 0.06,
+      "y": 0.02,
+      "width": 0.29,
+      "height": 0.53
+    },
+    {
+      "kind": "entry_door",
+      "x": 0.48,
+      "y": 0.02,
+      "width": 0.09,
+      "height": 0.54
+    },
+    {
+      "kind": "window",
+      "x": 0.66,
+      "y": 0.12,
+      "width": 0.1,
+      "height": 0.38
+    },
+    {
+      "kind": "window",
+      "x": 0.78,
+      "y": 0.12,
+      "width": 0.1,
+      "height": 0.38
+    },
+    {
+      "kind": "window",
+      "x": 0.49,
+      "y": 0.78,
+      "width": 0.055,
+      "height": 0.14
+    }
+  ],
+  "porch_posts": [
+    0.46,
+    0.63
+  ],
+  "architectural_notes": "ILLUSTRATIVE hand-authored fixture based on a common farmhouse layout. This is not measured from the user's photo."
+}
