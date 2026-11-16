@@ -1,57 +1,212 @@
-import {NextRequest,NextResponse} from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export const runtime="nodejs";
-const allowed=new Set(["image/png","image/jpeg","image/webp"]);
-const MAX_BYTES=8*1024*1024;
+export const runtime = "nodejs";
 
-type Observation={component:string;count:number;notes:string;confidence:"high"|"medium"|"low"};
-type Analysis={building_summary:string;photo_view:string;visible_components:Observation[];missing_views:string[];reconstruction_notes:string[]};
+const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
-export async function POST(request:NextRequest){
-  const key=process.env.OPENAI_API_KEY;
-  if(!key)return NextResponse.json({error:"OPENAI_API_KEY is missing. Add it to .env.local and restart npm run dev."},{status:503});
-  let form:FormData;
-  try{form=await request.formData()}catch{return NextResponse.json({error:"Expected multipart/form-data upload."},{status:400})}
-  const uploaded=form.get("photo");
-  if(!(uploaded instanceof File))return NextResponse.json({error:"Choose a photo before analyzing."},{status:400});
-  if(!allowed.has(uploaded.type))return NextResponse.json({error:"Supported image formats: JPEG, PNG, WebP."},{status:400});
-  if(uploaded.size===0||uploaded.size>MAX_BYTES)return NextResponse.json({error:"Photo must be between 1 byte and 8 MB."},{status:413});
-  const encoded=Buffer.from(await uploaded.arrayBuffer()).toString("base64");
-  const schema={
-    type:"object",additionalProperties:false,
-    properties:{
-      building_summary:{type:"string"},
-      photo_view:{type:"string"},
-      visible_components:{type:"array",items:{type:"object",additionalProperties:false,properties:{
-        component:{type:"string"},count:{type:"integer"},notes:{type:"string"},confidence:{type:"string",enum:["high","medium","low"]}
-      },required:["component","count","notes","confidence"]}},
-      missing_views:{type:"array",items:{type:"string"}},
-      reconstruction_notes:{type:"array",items:{type:"string"}}
+type Observation = {
+  component: string;
+  count: number;
+  notes: string;
+  confidence: "high" | "medium" | "low";
+};
+
+type Analysis = {
+  building_summary: string;
+  photo_view: string;
+  visible_components: Observation[];
+  missing_views: string[];
+  reconstruction_notes: string[];
+};
+
+// The frontend expects this same JSON shape, regardless of which model provides it.
+const responseSchema = {
+  type: "OBJECT",
+  properties: {
+    building_summary: { type: "STRING" },
+    photo_view: { type: "STRING" },
+    visible_components: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          component: { type: "STRING" },
+          count: { type: "INTEGER" },
+          notes: { type: "STRING" },
+          confidence: { type: "STRING", enum: ["high", "medium", "low"] },
+        },
+        required: ["component", "count", "notes", "confidence"],
+      },
     },
-    required:["building_summary","photo_view","visible_components","missing_views","reconstruction_notes"]
-  };
-  const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),60000);
-  try{
-    const response=await fetch("https://api.openai.com/v1/responses",{
-      method:"POST",
-      headers:{"Authorization":`Bearer ${key}`,"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:process.env.OPENAI_VISION_MODEL||"gpt-4.1-mini",
-        store:false,
-        instructions:"You are an architectural image analyst. Analyze ONLY visually observable properties of the provided REAL house photo. Do not infer exact dimensions, hidden structure, manufacturer, or product. Identify visible siding/wall areas, roof, doors, garage, windows, trim, and major occlusions. Return concise observations. Do not claim to have produced segmentation masks, geometry, or 3D models. If the image is not of a house, state that in building_summary and return an empty visible_components list.",
-        input:[{role:"user",content:[{type:"input_text",text:"Describe the exterior architectural elements visible in this photograph. Explain what additional views would be needed before reconstructing the same house in 3D."},{type:"input_image",image_url:`data:${uploaded.type};base64,${encoded}`,detail:"high"}]}],
-        text:{format:{type:"json_schema",name:"house_observation",schema,strict:true}},
-        max_output_tokens:1100
-      }),
-      signal:controller.signal
-    });
-    const payload=await response.json();
-    if(!response.ok)return NextResponse.json({error:payload?.error?.message||"OpenAI API request failed."},{status:502});
-    const raw=payload.output?.flatMap((item:{content?:Array<{type?:string;text?:string}>})=>item.content||[]).filter((part:{type?:string})=>part.type==="output_text").map((part:{text?:string})=>part.text||"").join("");
-    if(!raw)return NextResponse.json({error:"The model did not return usable architectural observations."},{status:502});
-    const analysis=JSON.parse(raw) as Analysis;
-    return NextResponse.json({analysis,model:payload.model||process.env.OPENAI_VISION_MODEL||"gpt-4.1-mini"});
-  }catch(error){const message=error instanceof Error&&error.name==="AbortError"?"Analysis timed out. Try a smaller image.":"Unable to analyze image. Check server logs and API access.";return NextResponse.json({error:message},{status:502})}
-  finally{clearTimeout(timeout)}
+    missing_views: { type: "ARRAY", items: { type: "STRING" } },
+    reconstruction_notes: { type: "ARRAY", items: { type: "STRING" } },
+  },
+  required: [
+    "building_summary",
+    "photo_view",
+    "visible_components",
+    "missing_views",
+    "reconstruction_notes",
+  ],
+} as const;
+
+function validAnalysis(data: unknown): data is Analysis {
+  if (!data || typeof data !== "object") return false;
+  const a = data as Partial<Analysis>;
+  return (
+    typeof a.building_summary === "string" &&
+    typeof a.photo_view === "string" &&
+    Array.isArray(a.missing_views) &&
+    a.missing_views.every((s) => typeof s === "string") &&
+    Array.isArray(a.reconstruction_notes) &&
+    a.reconstruction_notes.every((s) => typeof s === "string") &&
+    Array.isArray(a.visible_components) &&
+    a.visible_components.every(
+      (item) =>
+        item &&
+        typeof item.component === "string" &&
+        Number.isInteger(item.count) &&
+        typeof item.notes === "string" &&
+        ["high", "medium", "low"].includes(item.confidence)
+    )
+  );
+}
+
+export async function POST(request: NextRequest) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) {
+    return NextResponse.json(
+      { error: "GEMINI_API_KEY is missing. Add it to .env.local and restart npm run dev." },
+      { status: 503 }
+    );
+  }
+
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return NextResponse.json(
+      { error: "Expected a multipart/form-data image upload." },
+      { status: 400 }
+    );
+  }
+
+  const uploaded = form.get("photo");
+  if (!(uploaded instanceof File)) {
+    return NextResponse.json({ error: "Choose a photo before analyzing." }, { status: 400 });
+  }
+  if (!allowedTypes.has(uploaded.type)) {
+    return NextResponse.json(
+      { error: "Supported image formats: JPEG, PNG, and WebP." },
+      { status: 400 }
+    );
+  }
+  if (!uploaded.size || uploaded.size > MAX_IMAGE_BYTES) {
+    return NextResponse.json(
+      { error: "Photo must be smaller than 8 MB and not empty." },
+      { status: 413 }
+    );
+  }
+
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+  const encoded = Buffer.from(await uploaded.arrayBuffer()).toString("base64");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": key,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: "Analyze this REAL home exterior photograph. Describe only architectural elements that are visibly supported by the image: siding or wall areas, roof, windows, trim, doors, garage, and occlusions. Be careful not to invent hidden elevations, exact dimensions, or manufacturer/product identities. Identify the camera viewpoint, list visible architectural components with best-effort counts and confidence, and say which other photos would be needed for a consistent 3D reconstruction. Do NOT claim you produced segmentation masks or a 3D model. If it is not a house exterior, say so and give an empty list of visible components.",
+                },
+                {
+                  inlineData: { mimeType: uploaded.type, data: encoded },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema,
+            maxOutputTokens: 1500,
+            temperature: 0.2,
+          },
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    const payload = await response.json();
+    if (!response.ok) {
+      const errorCode = payload?.error?.status;
+      const providerMessage = String(payload?.error?.message || "");
+      if (response.status === 429 || errorCode === "RESOURCE_EXHAUSTED") {
+        return NextResponse.json(
+          { error: "Gemini's free-tier request limit was reached. Check your Google AI Studio limits and retry later." },
+          { status: 429 }
+        );
+      }
+      if (response.status === 400 || response.status === 404) {
+        return NextResponse.json(
+          { error: "Gemini rejected the model or request. Confirm GEMINI_MODEL is available to your API key in Google AI Studio." },
+          { status: 502 }
+        );
+      }
+      console.error("Gemini analysis API failed:", response.status, errorCode, providerMessage);
+      return NextResponse.json(
+        { error: "Gemini couldn't analyze the photo. Check API key permissions and server logs." },
+        { status: 502 }
+      );
+    }
+
+    const raw = payload?.candidates?.[0]?.content?.parts
+      ?.filter((part: { text?: string }) => typeof part.text === "string")
+      .map((part: { text: string }) => part.text)
+      .join("");
+
+    if (!raw) {
+      return NextResponse.json(
+        { error: "Gemini returned no architectural observations. Try another photo." },
+        { status: 502 }
+      );
+    }
+
+    let analysis: unknown;
+    try {
+      analysis = JSON.parse(raw);
+    } catch {
+      return NextResponse.json(
+        { error: "Gemini returned an unreadable result. Please retry." },
+        { status: 502 }
+      );
+    }
+    if (!validAnalysis(analysis)) {
+      return NextResponse.json(
+        { error: "Gemini returned incomplete architectural data. Please retry." },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ analysis, model });
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? "Analysis timed out. Try a smaller image."
+        : "Unable to analyze image. Check the development server logs.";
+    return NextResponse.json({ error: message }, { status: 502 });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
