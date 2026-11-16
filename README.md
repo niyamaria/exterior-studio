@@ -1,40 +1,49 @@
 # Exterior Studio
 
-Interactive James Hardie-inspired home exterior visualization research prototype. Independent student project; not an official James Hardie app.
+Independent student research prototype for a James Hardie-inspired homeowner design experience. **Not** an official James Hardie website or product catalog.
 
-## Start locally
+## Quick start (Mac / VS Code)
 
-1. Install Node.js LTS
-2. Clone this repository into VS Code
-3. Open terminal and run `npm install`
-4. Run `npm run dev`
-5. Visit http://localhost:3000
+1. Install Node.js LTS and open this repository in VS Code.
+2. In the VS Code terminal, run `npm install`.
+3. Copy `.env.example` into a new file named `.env.local` in the repository root.
+4. Sign in to [Google AI Studio](https://aistudio.google.com/api-keys), create a Gemini Developer API key in an eligible free-tier project, and paste it into `.env.local`:
+   ```env
+   GEMINI_API_KEY=your_actual_key_here
+   GEMINI_MODEL=gemini-2.5-flash-lite
+   ```
+5. Run `npm run dev` (restart if you changed `.env.local` while the server was open).
+6. Go to <http://localhost:3000>.
 
-## Working prototype features
-- Procedurally generated **demo house** in a real Three.js scene (not reconstructed from uploaded photographs)
-- Orbit, zoom, hover object names, and click meshes to select semantic component classes
-- Choose different colors for siding, roof, trim, and garage
-- Stage all choices and apply them together with **Apply My Design**
-- Export front/back/left/right PNG screenshots of one consistent demo house (four browser downloads)
-- Reference-image file picker only shows the filename; no processing yet
+**Updating an existing clone:** run `git pull`, update your local `.env.local` with the Gemini values above, remove any old `OPENAI_*` variables, then restart `npm run dev`.
 
-## Not implemented yet
-- GPT photo interpretation, image segmentation, house reconstruction from user photos
-- Photorealistic AI rendering, actual licensed James Hardie product catalog
-- Persistent accounts/projects, ZIP exports
+## Test the photo-analysis workflow
 
-See `docs/ARCHITECTURE.md` for next development stages.
+1. Click **Add reference photo** and select a real house photo (JPEG, PNG or WebP, maximum 8 MB).
+2. Click **Analyze house photo**.
+3. Review the Gemini-generated component summary, estimated counts, confidence levels, and recommended additional angles.
 
-## GPT house-photo analysis (new)
+**Current limitation:** the analysis is textual/structured; it does **not** generate segmented pixel masks or reconstruct the uploaded house in 3D. The interactive viewer remains a procedural demonstration house.
 
-The uploaded photo can now be sent to a **server-side OpenAI Responses API** endpoint for architectural observations. The result panel lists visible components, uncertainties, and additional viewpoints needed to produce a consistent 3D model.
+## Prototype features
 
-1. Copy `.env.example` to `.env.local`.
-2. Replace `replace_with_your_api_key` with an OpenAI Platform API key (API billing may apply).
-3. Restart `npm run dev`, upload a real house photo (JPG, PNG, or WebP; up to 8 MB), and click **Analyze house photo**.
-4. Review the detected architectural features below the upload area.
+- Browser-based Three.js 3D demo house with selectable semantic classes
+- Orbit and zoom the model, hover parts and select them
+- Stage siding, roof, trim and garage colors, then apply all changes together
+- Export four PNG images (front/back/left/right) from the same **demo** scene
+- Gemini photo analysis via server-only `app/api/analyze/route.ts`, returning the same JSON format expected by the existing UI
 
-The API key is read **only on the server** in `app/api/analyze/route.ts`; never share it in screenshots or commit `.env.local`.
+## Free tier, security, and privacy
 
-**Scope:** GPT currently produces textual architectural observations, *not pixel-perfect masks or a reconstructed 3D house*. The editable 3D viewer remains a procedural demo. The next stage will turn detected features into segmented surfaces and geometry, with multi-view validation.
+- The default `gemini-2.5-flash-lite` has free-tier image/text requests according to Google's pricing, **subject to account eligibility, model availability, quotas, and rate limits**. Check [current pricing](https://ai.google.dev/gemini-api/docs/pricing) and your Google AI Studio project before using it.
+- **Google can use content submitted through its free tier to improve its products.** Do not submit private homeowner photos, confidential partner materials, or other sensitive/corporate content without permission.
+- Store `GEMINI_API_KEY` **only** in local `.env.local` or server-side deployment secrets. Never put it in `NEXT_PUBLIC_*`, frontend JavaScript, screenshots, or GitHub. `.env.local` is gitignored.
+- The demo endpoint is for local development. Add authentication, rate limiting, and usage controls before public deployment.
+- The endpoint forwards the photo bytes to Google for analysis; this prototype does not independently store uploaded images.
+- No extra Gemini SDK dependency is needed: the existing Next.js backend makes a secure REST call.
 
+## Not yet implemented
+
+Automatic image segmentation masks, multi-view photo-to-3D reconstruction, real James Hardie product textures or licensing, photorealistic AI re-rendering, persistent projects, or ZIP exports.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the development roadmap.
