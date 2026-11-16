@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+  const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
   const encoded = Buffer.from(await uploaded.arrayBuffer()).toString("base64");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
       }
       if (response.status === 400 || response.status === 404) {
         return NextResponse.json(
-          { error: "Gemini rejected the model or request. Confirm GEMINI_MODEL is available to your API key in Google AI Studio." },
+          { error: `Gemini returned ${response.status} for model "${model}": ${providerMessage.slice(0, 450) || "Check model access and request format."}` },
           { status: 502 }
         );
       }
