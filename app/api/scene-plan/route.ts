@@ -20,9 +20,12 @@ const schema = {
     x:{type:"NUMBER"},y:{type:"NUMBER"},width:{type:"NUMBER"},height:{type:"NUMBER"}
   },required:["kind","x","y","width","height"]}},
   porch_posts: {type:"ARRAY",items:{type:"NUMBER"}},
-  architectural_notes: {type:"STRING"}
+  architectural_notes: {type:"STRING"},
+  garage_side:{type:"STRING",enum:["left","right","none"]},
+  siding_style:{type:"STRING",enum:["board_and_batten","lap","stucco","other"]},
+  front_gables:{type:"ARRAY",items:{type:"OBJECT",properties:{center_x:{type:"NUMBER"},width:{type:"NUMBER"},height_ratio:{type:"NUMBER"}},required:["center_x","width","height_ratio"]}}
  },
- required:["stories","roof_type","roof_color","siding_color","roof_ridge_direction","roof_pitch","openings","porch_posts","architectural_notes"]
+ required:["stories","roof_type","roof_color","siding_color","roof_ridge_direction","roof_pitch","openings","porch_posts","architectural_notes","garage_side","siding_style","front_gables"]
 } as const;
 
 export async function POST(request:NextRequest) {
@@ -44,7 +47,7 @@ export async function POST(request:NextRequest) {
     signal:abort.signal,
     body:JSON.stringify({
       contents:[{role:"user",parts:[
-       {text:"Create a normalized FRONT FACADE SCHEMATIC for a THREE.JS procedural mesh generator from this REAL home photograph. This is NOT photogrammetry. Output estimated visible layout only. Stories: 1 or 2. Specify approximate wall/siding and roof HEX colors (e.g. #eee9dd). Roof shape gable/hip/shed/flat, principal ridge direction, roof pitch. For each visible window, entry door, garage door return a normalized bounding rectangle relative to the main visible facade: x is left edge from 0..1, y is bottom edge from 0..1 (GROUND=0), width and height fractions 0..1. Do not infer windows or doors on unseen elevations. For porch posts use x positions from 0..1. Output no more than 18 openings and 8 posts. Exclude occluded/uncertain elements. Keep notes short, state uncertainties. All dimensions and geometry will be illustrative and NOT measured. If this is not a residential exterior, return no openings."},
+       {text:"Create a normalized FRONT FACADE SCHEMATIC for a THREE.JS procedural mesh generator from this REAL home photograph. This is NOT photogrammetry. Output estimated visible layout only. Stories: 1 or 2. Specify approximate wall/siding and roof HEX colors (e.g. #eee9dd). Roof shape gable/hip/shed/flat, principal ridge direction, roof pitch. For each visible window, entry door, garage door return a normalized bounding rectangle relative to the main visible facade: x is left edge from 0..1, y is bottom edge from 0..1 (GROUND=0), width and height fractions 0..1. Do not infer windows or doors on unseen elevations. For porch posts use x positions from 0..1. Specify garage_side left/right/none and siding_style. Return front_gables: separate real front-facing triangular roof sections, each with center_x and width relative to visible facade (0..1), plus height_ratio for the rise relative to wall height (0.1..0.8). This is important for overlapping farmhouse rooflines; do not invent gables that are not visible. Output no more than 18 openings, 8 posts, and 4 front gables. Exclude occluded/uncertain elements. Keep notes short, state uncertainties. All dimensions and geometry will be illustrative and NOT measured. If this is not a residential exterior, return no openings."},
        {inlineData:{mimeType:photo.type,data:encoded}}
       ]}],
       generationConfig:{responseMimeType:"application/json",responseSchema:schema,temperature:0.1,maxOutputTokens:1400}
@@ -71,6 +74,7 @@ export async function POST(request:NextRequest) {
   return NextResponse.json({plan:{
     ...plan,stories:clamp(Math.round(plan.stories),1,2),
     openings,porch_posts:plan.porch_posts.slice(0,8).map(v=>clamp(v,0,1)),
+    front_gables:(plan.front_gables||[]).slice(0,4).map(g=>({center_x:clamp(g.center_x,.05,.95),width:clamp(g.width,.12,.95),height_ratio:clamp(g.height_ratio,.12,.8)})),
     siding_color:/^#[0-9a-fA-F]{6}$/.test(plan.siding_color)?plan.siding_color:"#e2ddd2",
     roof_color:/^#[0-9a-fA-F]{6}$/.test(plan.roof_color)?plan.roof_color:"#414850",
     architectural_notes:plan.architectural_notes.slice(0,500)
