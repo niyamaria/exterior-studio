@@ -33,3 +33,11 @@
 .correction-check,.correction-label{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#355346}
 .correction-check input{accent-color:#355346;width:17px;height:17px;cursor:pointer}
 .correction-label select{background:white;color:#374b3e;border:1px solid #c7d3c8;border-radius:6px;padding:9px 10px;font-size:12px;cursor:pointer}
+
+
+.blender-workflow{margin-top:16px;padding:19px;border:1px solid #bccdc2;background:#eaf0e9;border-radius:9px;display:flex;justify-content:space-between;align-items:center;gap:22px;flex-wrap:wrap}
+.blender-workflow strong{color:#264936;font-size:15px}
+.blender-workflow p{color:#607166;line-height:1.6;font-size:12px;max-width:680px;margin:7px 0 0}
+.blender-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.blender-actions .upload{background:white}
+.blender-actions button:disabled{opacity:.65;cursor:wait}
