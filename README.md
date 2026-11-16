@@ -57,3 +57,13 @@ The schematic 3D generator now produces attached sloped roof planes and gable wa
 ## Temporary Gemini 503 errors
 
 Google sometimes returns `503 UNAVAILABLE` when its model is overloaded. Both photo analysis and scene planning now automatically retry up to **3 total attempts** with short exponential backoff for transient 5xx errors. The backend does not change the configured model or enable billing. If all attempts fail, the interface shows a clear temporary-overload message. These are provider-side errors, **not** invalid API keys. A `429` response means a separate quota or rate-limit issue and is not retried by this helper.
+
+## Correcting imperfect Gemini geometry
+
+After **Generate schematic 3D**, use **Fine-tune the house layout**:
+
+- **Flip facade left/right** if Gemini reverses garage and window placement. This mirrors the estimated opening and porch-post coordinates without an API call.
+- **Roof shape → Front-facing gable ▲** if the reference photo has a triangular facade roofline but Gemini guessed a horizontal/side-facing ridge. The generator adds a smaller forward garage cross-gable in that configuration.
+- Material previews and the four PNG exports use the corrected live Three.js scene.
+
+This improves the *schematic interpretation* but does not guarantee an architectural match, reconstruct hidden sides, or implement pixel masks. For higher accuracy, the next milestone is image-aligned mask extraction plus manual editable control points (roof vertices and opening bounding boxes).
