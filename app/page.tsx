@@ -1,0 +1,61 @@
+"use client";
+import {useEffect,useRef,useState} from "react";
+import * as THREE from "three";
+
+type Part="siding"|"roof"|"trim"|"garage";
+const palette:Record<Part,string[]>={siding:["#d9d3c4","#a4b1a6","#5c7381","#b58f77"],roof:["#383d43","#6a6461","#87715b"],trim:["#f3efe4","#ced1c9","#373e43"],garage:["#4c5256","#f2ece0","#9c9588"]};
+const labels:Record<Part,string>={siding:"Main siding",roof:"Roof",trim:"Exterior trim",garage:"Garage door"};
+const defaults:Record<Part,string>={siding:"#d9d3c4",roof:"#383d43",trim:"#f3efe4",garage:"#4c5256"};
+const views=[["front",[11,-15,9]],["back",[-11,15,9]],["left",[-15,-10,8]],["right",[15,10,8]]] as const;
+function cube(name:string,cat:Part,w:number,h:number,d:number,x:number,y:number,z:number,color:string,group:THREE.Group){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color,roughness:.82}));
+ m.name=name;m.userData.category=cat;m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;group.add(m);return m;
+}
+function makeHouse(group:THREE.Group){
+ cube("Front exterior wall","siding",10,5.5,.3,0,2.75,-3.5,defaults.siding,group);
+ cube("Back exterior wall","siding",10,5.5,.3,0,2.75,3.5,defaults.siding,group);
+ cube("Left wall","siding",.3,5.5,7,-5,2.75,0,defaults.siding,group);
+ cube("Right wall","siding",.3,5.5,7,5,2.75,0,defaults.siding,group);
+ cube("Garage door","garage",3.4,2.8,.12,-2.45,1.4,-3.74,defaults.garage,group);
+ cube("Front entry door","trim",1.2,2.5,.13,2.2,1.25,-3.77,"#41464b",group);
+ for(const x of [-3.5,0,3.5]){cube("Front window "+x,"trim",1.35,1.38,.10,x,3.9,-3.78,"#f3efe4",group);cube("Window glazing "+x,"trim",1.06,1.07,.15,x,3.9,-3.85,"#455966",group);}
+ for(const x of [-3.2,0,3.2]){cube("Back window "+x,"trim",1.4,1.5,.1,x,3.8,3.76,"#f3efe4",group);cube("Back glazing "+x,"trim",1.1,1.2,.11,x,3.8,3.84,"#455966",group);}
+ for(const z of [-1.5,1.5]) for(const side of [-1,1]){cube("Side window trim","trim",.13,1.3,1.4,side*5.19,3.75,z,defaults.trim,group);}
+ // Two sloped rectangular roof planes, each independently selectable
+ const roofMaterial=new THREE.MeshStandardMaterial({color:defaults.roof,side:THREE.DoubleSide,roughness:.9});
+ const verts=new Float32Array([-5.7,5.5,-4.2,0,8.05,-4.2,0,8.05,4.2,-5.7,5.5,4.2,0,8.05,-4.2,5.7,5.5,-4.2,5.7,5.5,4.2,0,8.05,4.2]);
+ for(let k=0;k<2;k++){const geometry=new THREE.BufferGeometry();const o=k*12;geometry.setAttribute("position",new THREE.BufferAttribute(verts.slice(o,o+12),3));geometry.setIndex([0,1,2,0,2,3]);geometry.computeVertexNormals();const m=new THREE.Mesh(geometry,roofMaterial.clone());m.name=k?"Right roof":"Left roof";m.userData.category="roof";m.castShadow=true;group.add(m);}
+}
+export default function Home(){
+ const host=useRef<HTMLDivElement>(null);const sceneRef=useRef<{scene:THREE.Scene;camera:THREE.PerspectiveCamera;renderer:THREE.WebGLRenderer;group:THREE.Group;controls:{az:number,el:number,dist:number};} |null>(null);
+ const [selected,setSelected]=useState<Part>("siding");const [pending,setPending]=useState<Record<Part,string>>(defaults);
+ const [applied,setApplied]=useState<Record<Part,string>>(defaults);const [busy,setBusy]=useState(false);
+ const [photoName,setPhotoName]=useState("");const [hover,setHover]=useState("");
+ useEffect(()=>{const hostEl=host.current;if(!hostEl)return;
+ const scene=new THREE.Scene();scene.background=new THREE.Color("#e8e8e0");
+ const camera=new THREE.PerspectiveCamera(45,1,.1,150);
+ const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;hostEl.appendChild(renderer.domElement);
+ scene.add(new THREE.HemisphereLight(0xffffff,0xa4a8ac,2.1));const light=new THREE.DirectionalLight(0xffffff,2.1);light.position.set(-6,17,-12);light.castShadow=true;scene.add(light);
+ const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({color:"#d2d3c8"}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+ const group=new THREE.Group();scene.add(group);makeHouse(group);
+ const controls={az:-.68,el:.30,dist:21};sceneRef.current={scene,camera,renderer,group,controls};
+ const target=new THREE.Vector3(0,3,0);const redraw=()=>{camera.position.set(target.x+Math.sin(controls.az)*Math.cos(controls.el)*controls.dist,target.y+Math.sin(controls.el)*controls.dist,target.z-Math.cos(controls.az)*Math.cos(controls.el)*controls.dist);camera.lookAt(target);renderer.render(scene,camera);};
+ const resize=()=>{const w=hostEl.clientWidth,h=hostEl.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();redraw();};new ResizeObserver(resize).observe(hostEl);resize();
+ let down=false,lx=0,ly=0;
+ const onDown=(e:PointerEvent)=>{down=true;lx=e.clientX;ly=e.clientY;renderer.domElement.setPointerCapture(e.pointerId)};
+ const onMove=(e:PointerEvent)=>{if(down){controls.az+=(e.clientX-lx)*.008;controls.el=Math.max(-.1,Math.min(1.2,controls.el+(e.clientY-ly)*.005));lx=e.clientX;ly=e.clientY;redraw()}else{const rect=renderer.domElement.getBoundingClientRect();const mouse=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);const ray=new THREE.Raycaster();ray.setFromCamera(mouse,camera);const hit=ray.intersectObjects(group.children)[0];setHover(hit?.object?.name||"");}};
+ const onUp=()=>{down=false};const onClick=(e:MouseEvent)=>{const rect=renderer.domElement.getBoundingClientRect();const mouse=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);const ray=new THREE.Raycaster();ray.setFromCamera(mouse,camera);const hit=ray.intersectObjects(group.children)[0];if(hit){setSelected(hit.object.userData.category as Part)}};
+ renderer.domElement.addEventListener("pointerdown",onDown);renderer.domElement.addEventListener("pointermove",onMove);renderer.domElement.addEventListener("pointerup",onUp);renderer.domElement.addEventListener("click",onClick);
+ const wheel=(e:WheelEvent)=>{e.preventDefault();controls.dist=Math.min(45,Math.max(10,controls.dist+e.deltaY*.013));redraw()};renderer.domElement.addEventListener("wheel",wheel,{passive:false});
+ return()=>{renderer.domElement.removeEventListener("pointerdown",onDown);renderer.domElement.removeEventListener("pointermove",onMove);renderer.domElement.removeEventListener("pointerup",onUp);renderer.domElement.removeEventListener("click",onClick);renderer.domElement.removeEventListener("wheel",wheel);renderer.dispose();hostEl.removeChild(renderer.domElement);sceneRef.current=null};
+ },[]);
+ function apply(){const x=sceneRef.current;if(!x)return;x.group.traverse(obj=>{if(obj instanceof THREE.Mesh&&obj.userData.category){const cat=obj.userData.category as Part; if(obj.name.includes("glazing")||obj.name.includes("entry door"))return; const m=obj.material as THREE.MeshStandardMaterial;m.color.set(pending[cat]);}});x.renderer.render(x.scene,x.camera);setApplied({...pending})}
+ function downloadView(name:string,pose:readonly number[]){const x=sceneRef.current;if(!x)return;const old=x.camera.position.clone(),q=x.camera.quaternion.clone();const w=x.renderer.domElement.width,h=x.renderer.domElement.height;x.camera.position.set(pose[0],pose[2],pose[1]);x.camera.lookAt(0,3,0);x.renderer.render(x.scene,x.camera);const a=document.createElement("a");a.href=x.renderer.domElement.toDataURL("image/png");a.download=`exterior-studio-${name}.png`;a.click();x.camera.position.copy(old);x.camera.quaternion.copy(q);x.renderer.render(x.scene,x.camera)}
+ function exportAll(){setBusy(true);views.forEach(([name,pose],i)=>setTimeout(()=>{downloadView(name,pose);if(i===3)setBusy(false)},i*380))}
+ return <main className="app"><header><div className="brand"><span className="brandmark">◈</span><div><strong>EXTERIOR STUDIO</strong><small>Architectural design workspace</small></div></div><nav><span className="active">01 &nbsp; Design</span><span>02 &nbsp; Review</span><span>03 &nbsp; Export</span></nav><span className="pill">Prototype</span></header>
+ <div className="heading"><div><span className="eyebrow">YOUR HOME, REIMAGINED</span><h1>Make every detail yours.</h1><p>Explore exterior finishes and stage your changes, then apply your design in one step.</p></div><label className="upload">+ Add reference photo<input type="file" accept="image/*" onChange={e=>setPhotoName(e.target.files?.[0]?.name||"")}/></label></div>
+ {photoName&&<div className="notice">Uploaded reference: <b>{photoName}</b> · Photo-to-3D reconstruction is not connected yet; the viewer below remains a demonstration model.</div>}
+ <section className="workspace"><div className="viewer"><div className="viewer-head"><span className="tag">INTERACTIVE 3D PREVIEW</span><span className="muted">Drag to orbit · Scroll to zoom · Click components</span></div><div ref={host} className="canvas"/><div className="viewer-foot"><span>{hover?"Hovering: "+hover:"Demo house • Not generated from your photo"}</span><span>Single consistent 3D scene</span></div></div>
+ <aside><div className="panel-heading"><span className="eyebrow">MATERIAL STUDIO</span><h2>Customize surfaces</h2><p>Choose a component to edit.</p></div><div className="categories">{(Object.keys(labels) as Part[]).map(c=><button key={c} className={selected===c?"cat selected":"cat"} onClick={()=>setSelected(c)}>{labels[c]}</button>)}</div><div className="selection"><span className="eyebrow">SELECTED</span><h3>{labels[selected]}</h3><p>Illustrative colors; verified James Hardie catalog integration is planned.</p><div className="swatches">{palette[selected].map(color=><button aria-label={color} title={color} key={color} className={pending[selected]===color?"swatch chosen":"swatch"} style={{backgroundColor:color}} onClick={()=>setPending(v=>({...v,[selected]:color}))}/>)}</div></div><div className="summary"><span>Staged changes</span><strong>{(Object.keys(labels) as Part[]).filter(c=>pending[c]!==applied[c]).length}</strong></div><button className="primary" onClick={apply}>Apply My Design →</button><p className="help">One click applies all staged material changes to the 3D model. AI photorealistic refinement is a later integration.</p></aside></section>
+ <section className="export"><div><span className="eyebrow">FINAL DELIVERABLE</span><h2>Four views. One design.</h2><p>Download front, back, left and right PNG captures from this same demo model.</p></div><button className="dark" disabled={busy} onClick={exportAll}>{busy?"Preparing captures…":"Export 4 PNG views ↓"}</button></section><footer>Exterior Studio · Independent research prototype, not an official James Hardie application.</footer></main>
+}
