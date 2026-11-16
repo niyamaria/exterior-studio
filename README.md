@@ -22,6 +22,8 @@ Independent student research prototype for a James Hardie-inspired homeowner des
 1. Click **Add reference photo** and select a real house photo (JPEG, PNG or WebP, maximum 8 MB).
 2. Click **Analyze house photo**.
 3. Review the Gemini-generated component summary, estimated counts, confidence levels, and recommended additional angles.
+4. Click **Generate schematic 3D** to produce normalized opening positions, a basic roof, estimated side/rear walls, and separately editable Three.js meshes. This makes a second Gemini call.
+5. Hover/select surfaces, stage colors and click **Apply My Design**. PNG exports then use the new schematic scene.
 
 **Current limitation:** the analysis is textual/structured; it does **not** generate segmented pixel masks or reconstruct the uploaded house in 3D. The interactive viewer remains a procedural demonstration house.
 
@@ -44,6 +46,6 @@ Independent student research prototype for a James Hardie-inspired homeowner des
 
 ## Not yet implemented
 
-Automatic image segmentation masks, multi-view photo-to-3D reconstruction, real James Hardie product textures or licensing, photorealistic AI re-rendering, persistent projects, or ZIP exports.
+Automatic pixel-level segmentation masks, accurate multi-view photo-to-3D reconstruction, real James Hardie product textures or licensing, photorealistic AI re-rendering, persistent projects, or ZIP exports. Side and rear elevations in a front-only upload are always unverified placeholders.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the development roadmap.
