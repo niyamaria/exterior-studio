@@ -231,7 +231,7 @@ def generate(plan):
     direction = Vector((0, 0, 3)) - camera.location
     camera.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
     bpy.context.scene.camera = camera
-    bpy.context.scene.render.engine = "BLENDER_EEVEE_NEXT" if "BLENDER_EEVEE_NEXT" in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items.keys() else "BLENDER_EEVEE"
+    # Use the Blender version's default render engine.
     bpy.context.scene.render.resolution_x = 1400
     bpy.context.scene.render.resolution_y = 1000
     bpy.context.scene.render.resolution_percentage = 100
