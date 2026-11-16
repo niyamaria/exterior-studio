@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
 import * as THREE from "three";
+import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader.js";
 import {buildPhotoHouse} from "../lib/build-house";
 import type {HousePlan} from "../lib/house-plan";
 
@@ -44,6 +45,12 @@ export default function Home(){
  const [roofCorrection,setRoofCorrection]=useState<"auto"|"front_to_back"|"left_to_right">("auto");
  const [generating,setGenerating]=useState(false);
  const [generationError,setGenerationError]=useState("");
+ const [blenderUrl,setBlenderUrl]=useState<string|null>(null);
+ const [blenderBusy,setBlenderBusy]=useState(false);
+ const [blenderError,setBlenderError]=useState("");
+ const blenderBlob=useRef<Blob|null>(null);
+ const lastBlenderUrl=useRef<string|null>(null);
+ useEffect(()=>()=>{if(lastBlenderUrl.current)URL.revokeObjectURL(lastBlenderUrl.current)},[]);
  const [referenceUrl,setReferenceUrl]=useState<string|null>(null);
  useEffect(()=>{if(!photoFile){setReferenceUrl(null);return;}const src=URL.createObjectURL(photoFile);setReferenceUrl(src);return()=>URL.revokeObjectURL(src)},[photoFile]);
  useEffect(()=>{const hostEl=host.current;if(!hostEl)return;
@@ -58,8 +65,8 @@ export default function Home(){
  const resize=()=>{const w=hostEl.clientWidth,h=hostEl.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();redraw();};new ResizeObserver(resize).observe(hostEl);resize();
  let down=false,lx=0,ly=0;
  const onDown=(e:PointerEvent)=>{down=true;lx=e.clientX;ly=e.clientY;renderer.domElement.setPointerCapture(e.pointerId)};
- const onMove=(e:PointerEvent)=>{if(down){controls.az+=(e.clientX-lx)*.008;controls.el=Math.max(-.1,Math.min(1.2,controls.el+(e.clientY-ly)*.005));lx=e.clientX;ly=e.clientY;redraw()}else{const rect=renderer.domElement.getBoundingClientRect();const mouse=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);const ray=new THREE.Raycaster();ray.setFromCamera(mouse,camera);const hit=ray.intersectObjects(group.children)[0];setHover(hit?.object?.name||"");}};
- const onUp=()=>{down=false};const onClick=(e:MouseEvent)=>{const rect=renderer.domElement.getBoundingClientRect();const mouse=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);const ray=new THREE.Raycaster();ray.setFromCamera(mouse,camera);const hit=ray.intersectObjects(group.children)[0];if(hit){setSelected(hit.object.userData.category as Part)}};
+ const onMove=(e:PointerEvent)=>{if(down){controls.az+=(e.clientX-lx)*.008;controls.el=Math.max(-.1,Math.min(1.2,controls.el+(e.clientY-ly)*.005));lx=e.clientX;ly=e.clientY;redraw()}else{const rect=renderer.domElement.getBoundingClientRect();const mouse=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);const ray=new THREE.Raycaster();ray.setFromCamera(mouse,camera);const hit=ray.intersectObjects(group.children,true)[0];setHover(hit?.object?.name||"");}};
+ const onUp=()=>{down=false};const onClick=(e:MouseEvent)=>{const rect=renderer.domElement.getBoundingClientRect();const mouse=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);const ray=new THREE.Raycaster();ray.setFromCamera(mouse,camera);const hit=ray.intersectObjects(group.children,true)[0];if(hit&&["siding","roof","trim","garage"].includes(hit.object.userData.category)){setSelected(hit.object.userData.category as Part)}};
  renderer.domElement.addEventListener("pointerdown",onDown);renderer.domElement.addEventListener("pointermove",onMove);renderer.domElement.addEventListener("pointerup",onUp);renderer.domElement.addEventListener("click",onClick);
  const wheel=(e:WheelEvent)=>{e.preventDefault();controls.dist=Math.min(45,Math.max(10,controls.dist+e.deltaY*.013));redraw()};renderer.domElement.addEventListener("wheel",wheel,{passive:false});
  return()=>{renderer.domElement.removeEventListener("pointerdown",onDown);renderer.domElement.removeEventListener("pointermove",onMove);renderer.domElement.removeEventListener("pointerup",onUp);renderer.domElement.removeEventListener("click",onClick);renderer.domElement.removeEventListener("wheel",wheel);renderer.dispose();hostEl.removeChild(renderer.domElement);sceneRef.current=null};
@@ -79,7 +86,25 @@ export default function Home(){
      roof_ridge_direction:roofCorrection==="auto"?housePlan.roof_ridge_direction:roofCorrection,
      openings:mirrorFacade?housePlan.openings.map(o=>({...o,x:1-o.x-o.width})):housePlan.openings,
      porch_posts:mirrorFacade?housePlan.porch_posts.map(x=>1-x):housePlan.porch_posts};
-   buildPhotoHouse(x.group,effectivePlan,applied);
+   if(!blenderUrl){buildPhotoHouse(x.group,effectivePlan,applied);}
+   else {
+    const loader=new GLTFLoader();
+    loader.load(blenderUrl,gltf=>{
+      if(sceneRef.current!==x)return;
+      for(const obj of [...x.group.children])x.group.remove(obj);
+      gltf.scene.traverse(obj=>{
+        if(obj instanceof THREE.Mesh){
+          const semantic=(obj.userData.semantic_class || obj.parent?.userData.semantic_class || "").toLowerCase();
+          const category=semantic==="door"||semantic==="window"?"trim":semantic;
+          obj.userData.category=["siding","roof","trim","garage"].includes(category)?category:undefined;
+          obj.userData.lockedMaterial=Boolean(obj.userData.locked_material||obj.parent?.userData.locked_material);
+          obj.castShadow=true;obj.receiveShadow=true;
+        }
+      });
+      x.group.add(gltf.scene);
+      x.renderer.render(x.scene,x.camera);
+    },undefined,e=>setBlenderError("The GLB was exported but could not load in Three.js. "+String(e)));
+   }
    x.controls.az=-.14;x.controls.el=.14;x.controls.dist=24;
   }else{
    makeHouse(x.group);
@@ -89,7 +114,27 @@ export default function Home(){
   x.camera.lookAt(0,3,0);x.renderer.render(x.scene,x.camera);
  // Rebuild only when a different photo plan is created or reset.
  // eslint-disable-next-line react-hooks/exhaustive-deps
- },[housePlan,mirrorFacade,roofCorrection]);
+ },[housePlan,mirrorFacade,roofCorrection,blenderUrl]);
+ async function generateBlenderModel(){
+  if(!housePlan)return;
+  setBlenderBusy(true);setBlenderError("");
+  try{
+   const response=await fetch("/api/build-blender",{
+     method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(housePlan)
+   });
+   if(!response.ok){const error=await response.json();throw new Error(error.error||"Blender generation failed.");}
+   const blob=await response.blob();
+   const url=URL.createObjectURL(blob);
+   if(lastBlenderUrl.current)URL.revokeObjectURL(lastBlenderUrl.current);
+   lastBlenderUrl.current=url;blenderBlob.current=blob;
+   setBlenderUrl(url);
+  }catch(error){setBlenderError(error instanceof Error?error.message:"Could not generate Blender GLB.")}
+  finally{setBlenderBusy(false)}
+ }
+ function downloadBlenderModel(){
+  if(!blenderBlob.current||!blenderUrl)return;
+  const a=document.createElement("a");a.href=blenderUrl;a.download="exterior-studio-semantic-house.glb";a.click();
+ }
  async function generatePhotoModel(){
   if(!photoFile)return;
   setGenerating(true);setGenerationError("");
@@ -100,7 +145,7 @@ export default function Home(){
    if(!response.ok)throw new Error(data.error||"Couldn't generate schematic layout.");
    const plan=data.plan as HousePlan;
    const nextColors={...defaults,siding:plan.siding_color,roof:plan.roof_color,garage:"#eeede7"};
-   setPending(nextColors);setApplied(nextColors);setMirrorFacade(false);setRoofCorrection("auto");setHousePlan(plan);
+   setPending(nextColors);setApplied(nextColors);setMirrorFacade(false);setRoofCorrection("auto");setBlenderUrl(null);blenderBlob.current=null;setHousePlan(plan);
   }catch(err){setGenerationError(err instanceof Error?err.message:"Failed to generate 3D layout.")}
   finally{setGenerating(false)}
  }
@@ -116,22 +161,24 @@ export default function Home(){
   }catch(error){setAnalysisError(error instanceof Error?error.message:"Image analysis failed.")}
   finally{setAnalyzing(false)}
  }
- function apply(){const x=sceneRef.current;if(!x)return;x.group.traverse(obj=>{if(obj instanceof THREE.Mesh&&obj.userData.category){const cat=obj.userData.category as Part; if(obj.userData.lockedMaterial||obj.name.includes("glazing")||obj.name.includes("entry door"))return; const m=obj.material as THREE.MeshStandardMaterial;m.color.set(pending[cat]);}});x.renderer.render(x.scene,x.camera);setApplied({...pending})}
+ function apply(){const x=sceneRef.current;if(!x)return;x.group.traverse(obj=>{if(obj instanceof THREE.Mesh&&obj.userData.category){const cat=obj.userData.category as Part; if(!pending[cat])return; if(obj.userData.lockedMaterial||obj.name.includes("glazing")||obj.name.includes("entry door"))return; const m=obj.material as THREE.MeshStandardMaterial;m.color.set(pending[cat]);}});x.renderer.render(x.scene,x.camera);setApplied({...pending})}
  function downloadView(name:string,pose:readonly number[]){const x=sceneRef.current;if(!x)return;const old=x.camera.position.clone(),q=x.camera.quaternion.clone();const w=x.renderer.domElement.width,h=x.renderer.domElement.height;x.camera.position.set(pose[0],pose[2],pose[1]);x.camera.lookAt(0,3,0);x.renderer.render(x.scene,x.camera);const a=document.createElement("a");a.href=x.renderer.domElement.toDataURL("image/png");a.download=`exterior-studio-${name}.png`;a.click();x.camera.position.copy(old);x.camera.quaternion.copy(q);x.renderer.render(x.scene,x.camera)}
  function exportAll(){setBusy(true);views.forEach(([name,pose],i)=>setTimeout(()=>{downloadView(name,pose);if(i===3)setBusy(false)},i*380))}
  return <main className="app"><header><div className="brand"><span className="brandmark">◈</span><div><strong>EXTERIOR STUDIO</strong><small>Architectural design workspace</small></div></div><nav><span className="active">01 &nbsp; Design</span><span>02 &nbsp; Review</span><span>03 &nbsp; Export</span></nav><span className="pill">Prototype</span></header>
- <div className="heading"><div><span className="eyebrow">YOUR HOME, REIMAGINED</span><h1>Make every detail yours.</h1><p>Explore exterior finishes and stage your changes, then apply your design in one step.</p></div><label className="upload">+ Add reference photo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>{const file=e.target.files?.[0]||null;setPhotoFile(file);setPhotoName(file?.name||"");setAnalysis(null);setAnalysisError("");setHousePlan(null);setMirrorFacade(false);setRoofCorrection("auto");setGenerationError("");}}/></label></div>
+ <div className="heading"><div><span className="eyebrow">YOUR HOME, REIMAGINED</span><h1>Make every detail yours.</h1><p>Explore exterior finishes and stage your changes, then apply your design in one step.</p></div><label className="upload">+ Add reference photo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>{const file=e.target.files?.[0]||null;setPhotoFile(file);setPhotoName(file?.name||"");setAnalysis(null);setAnalysisError("");setHousePlan(null);setMirrorFacade(false);setRoofCorrection("auto");setBlenderUrl(null);blenderBlob.current=null;setGenerationError("");}}/></label></div>
  {photoName&&<section className="analysis-panel">
  <div className="analysis-intro"><div><span className="eyebrow">AI IMAGE ANALYSIS</span><h2>Understand your reference photo</h2><p><strong>{photoName}</strong> · Vision analysis finds architectural elements; it does not yet generate pixel masks or reconstruct the house.</p></div><button className="dark" disabled={analyzing} onClick={analyzePhoto}>{analyzing?"Analyzing photograph…":"Analyze house photo →"}</button></div>
  {referenceUrl&&<div className="reference-preview"><img src={referenceUrl} alt="Uploaded reference house" /><p>Actual uploaded photo • Reference for schematic geometry</p></div>}
  {analysisError&&<p className="analysis-error" role="alert">{analysisError}</p>}
  {analysis&&<div className="generate-layout"><div><strong>Generate a first-pass 3D structure</strong><p>Build editable meshes from estimated facade layout. This is a schematic approximation, not a photogrammetric reconstruction.</p></div><button className="dark" disabled={generating} onClick={generatePhotoModel}>{generating?"Building 3D layout…":"Generate schematic 3D →"}</button></div>}
  {generationError&&<p className="analysis-error" role="alert">{generationError}</p>}
- {housePlan&&<div className="geometry-corrections"><div><strong>Fine-tune the house layout</strong><p>These corrections redraw the actual 3D mesh without another AI request. Compare with the original photo above.</p></div><div className="correction-controls"><label className="correction-check"><input type="checkbox" checked={mirrorFacade} onChange={e=>setMirrorFacade(e.target.checked)}/> Flip facade left/right</label><label className="correction-label">Roof shape <select value={roofCorrection} onChange={e=>setRoofCorrection(e.target.value as "auto"|"front_to_back"|"left_to_right")}><option value="auto">AI estimate</option><option value="front_to_back">Front-facing gable ▲</option><option value="left_to_right">Side-facing ridge</option></select></label></div></div>}
+ {housePlan&&<div className="blender-workflow"><div><strong>Generate the full editable Blender mesh</strong><p>Run the procedural modeling script locally using your Mac's installed Blender. The result loads as a GLB here, with named semantic components. Unlike the quick schematic, this step creates a downloadable Blender-generated model.</p></div><div className="blender-actions"><button className="dark" disabled={blenderBusy} onClick={generateBlenderModel}>{blenderBusy?"Blender is generating…":"Build with Blender →"}</button>{blenderUrl&&<button className="upload" onClick={downloadBlenderModel}>Download GLB ↓</button>}</div></div>}
+ {blenderError&&<p className="analysis-error" role="alert">{blenderError}</p>}
+ {housePlan&&<div className="geometry-corrections"><div><strong>Fine-tune the house layout</strong><p>These corrections redraw the actual 3D mesh without another AI request. Compare with the original photo above.</p></div><div className="correction-controls"><label className="correction-check"><input type="checkbox" checked={mirrorFacade} onChange={e=>{setMirrorFacade(e.target.checked);setBlenderUrl(null);blenderBlob.current=null;}}/> Flip facade left/right</label><label className="correction-label">Roof shape <select value={roofCorrection} onChange={e=>{setRoofCorrection(e.target.value as "auto"|"front_to_back"|"left_to_right");setBlenderUrl(null);blenderBlob.current=null;}}><option value="auto">AI estimate</option><option value="front_to_back">Front-facing gable ▲</option><option value="left_to_right">Side-facing ridge</option></select></label></div></div>}
  {housePlan&&<div className="generated-note"><strong>Schematic model generated</strong> · {housePlan.stories} {housePlan.stories===1?"story":"stories"} · {housePlan.roof_type} roof · {housePlan.openings.length} placed openings. <span>Side/rear geometry and exact dimensions are estimated.</span><p>{housePlan.architectural_notes}</p></div>}
  {analysis&&<div className="analysis-results"><div><strong>{analysis.building_summary}</strong><p>Likely viewpoint: {analysis.photo_view}</p><h3>Visible architectural components</h3><div className="detected-grid">{analysis.visible_components.map((item,i)=><div className="detected" key={i}><strong>{item.component}</strong><span>Count: {item.count} · {item.confidence} confidence</span><p>{item.notes}</p></div>)}</div></div><div className="analysis-notes"><h3>Reconstruction readiness</h3><p>Suggested additional views: {analysis.missing_views.length?analysis.missing_views.join(", "):"None specified"}</p><ul>{analysis.reconstruction_notes.map((note,i)=><li key={i}>{note}</li>)}</ul><p><strong>Current viewer:</strong> {housePlan?"photo-informed schematic geometry, not a measured reconstruction.":"demonstration house until you generate the schematic layout."}</p></div></div>}
  </section>}
- <section className="workspace"><div className="viewer"><div className="viewer-head"><span className="tag">{housePlan?"PHOTO-INFORMED SCHEMATIC 3D":"INTERACTIVE 3D DEMO"}</span><span className="muted">Drag to orbit · Scroll to zoom · Click components</span></div><div ref={host} className="canvas"/><div className="viewer-foot"><span>{hover?"Hovering: "+hover:housePlan?"Estimated facade • rear and sides not verified":"Demo house • Not generated from your photo"}</span><span>Single consistent 3D scene</span></div></div>
+ <section className="workspace"><div className="viewer"><div className="viewer-head"><span className="tag">{blenderUrl?"BLENDER SEMANTIC 3D":housePlan?"PHOTO-INFORMED SCHEMATIC 3D":"INTERACTIVE 3D DEMO"}</span><span className="muted">Drag to orbit · Scroll to zoom · Click components</span></div><div ref={host} className="canvas"/><div className="viewer-foot"><span>{hover?"Hovering: "+hover:housePlan?"Estimated facade • rear and sides not verified":"Demo house • Not generated from your photo"}</span><span>Single consistent 3D scene</span></div></div>
  <aside><div className="panel-heading"><span className="eyebrow">MATERIAL STUDIO</span><h2>Customize surfaces</h2><p>Choose a component to edit.</p></div><div className="categories">{(Object.keys(labels) as Part[]).map(c=><button key={c} className={selected===c?"cat selected":"cat"} onClick={()=>setSelected(c)}>{labels[c]}</button>)}</div><div className="selection"><span className="eyebrow">SELECTED</span><h3>{labels[selected]}</h3><p>Illustrative colors; verified James Hardie catalog integration is planned.</p><div className="swatches">{palette[selected].map(color=><button aria-label={color} title={color} key={color} className={pending[selected]===color?"swatch chosen":"swatch"} style={{backgroundColor:color}} onClick={()=>setPending(v=>({...v,[selected]:color}))}/>)}</div></div><div className="summary"><span>Staged changes</span><strong>{(Object.keys(labels) as Part[]).filter(c=>pending[c]!==applied[c]).length}</strong></div><button className="primary" onClick={apply}>Apply My Design →</button><p className="help">One click applies all staged material changes to the 3D model. AI photorealistic refinement is a later integration.</p></aside></section>
  <section className="export"><div><span className="eyebrow">FINAL DELIVERABLE</span><h2>Four views. One design.</h2><p>Download front, back, left and right PNG captures from this same {housePlan?"schematic model. Unseen elevations are estimated.":"demo model."}</p></div><button className="dark" disabled={busy} onClick={exportAll}>{busy?"Preparing captures…":"Export 4 PNG views ↓"}</button></section><footer>Exterior Studio · Independent research prototype, not an official James Hardie application.</footer></main>
 }
