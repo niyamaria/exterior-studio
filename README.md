@@ -107,3 +107,14 @@ See [the complete implementation and JSON schema guide](docs/GEMINI_BLENDER_PIPE
 
 **Retest:** `git pull`, restart `npm run dev`, and run **Build with Blender** again after generating a house plan. Previously downloaded GLBs are static and won't automatically gain these changes. The geometry is still approximate; pixel-aligned facade masks and manual vertex corrections remain future work.
 
+
+
+## Import the original detailed reference house (287 editable objects)
+
+The earlier manually modeled Blender reference is **much more detailed** than the automated Gemini schematic. It includes an arched garage, windows, shutters, trim, gutters, driveway and landscaping. The website now accepts that GLB **directly** with the **Import detailed GLB** button located above the photo-analysis panel. No Gemini quota or Blender worker is required for direct import.
+
+This model is available as the prior deliverable `real_reference_house_editable.glb`. Download it from the ChatGPT conversation, then import it from your Mac.
+
+The GLB has 287 semantic mesh nodes named like `SHUTTER__...`, `GARAGE__...` and `TRIM__...`. The Three.js loader now interprets node-name prefixes as semantic classes when custom properties are unavailable, and the material studio includes **Shutters** and **Gutters** categories.
+
+This is a **specific reference-based approximate reconstruction**, not an arbitrary photo-to-3D model. To generalize this fidelity, we need richer geometry extraction, per-photo semantic mask/landmark correction, and improvements to `scripts/blender/generate_house_from_plan.py`. Importing the previously built model is a controlled quality baseline, not automatic photo reconstruction.
