@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchGeminiWithRetry } from "../../../lib/gemini-retry";
 import { isHousePlan, type HousePlan } from "../../../lib/house-plan";
+import {readHousePhotos,photoParts} from "../../../lib/house-photos";
 
 export const runtime = "nodejs";
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -23,9 +24,10 @@ const schema = {
   architectural_notes: {type:"STRING"},
   garage_side:{type:"STRING",enum:["left","right","none"]},
   siding_style:{type:"STRING",enum:["board_and_batten","lap","stucco","other"]},
-  front_gables:{type:"ARRAY",items:{type:"OBJECT",properties:{center_x:{type:"NUMBER"},width:{type:"NUMBER"},height_ratio:{type:"NUMBER"}},required:["center_x","width","height_ratio"]}}
+  front_gables:{type:"ARRAY",items:{type:"OBJECT",properties:{center_x:{type:"NUMBER"},width:{type:"NUMBER"},height_ratio:{type:"NUMBER"}},required:["center_x","width","height_ratio"]}},
+  side_openings:{type:"ARRAY",items:{type:"OBJECT",properties:{view:{type:"STRING",enum:["left","right","rear"]},kind:{type:"STRING",enum:["window","entry_door","garage_door"]},x:{type:"NUMBER"},y:{type:"NUMBER"},width:{type:"NUMBER"},height:{type:"NUMBER"}},required:["view","kind","x","y","width","height"]}}
  },
- required:["stories","roof_type","roof_color","siding_color","roof_ridge_direction","roof_pitch","openings","porch_posts","architectural_notes","garage_side","siding_style","front_gables"]
+ required:["stories","roof_type","roof_color","siding_color","roof_ridge_direction","roof_pitch","openings","porch_posts","architectural_notes","garage_side","siding_style","front_gables","side_openings"]
 } as const;
 
 export async function POST(request:NextRequest) {
@@ -33,10 +35,10 @@ export async function POST(request:NextRequest) {
  if(!key)return NextResponse.json({error:"Add GEMINI_API_KEY to .env.local and restart Next.js."},{status:503});
  let form:FormData;
  try{form=await request.formData()}catch{return NextResponse.json({error:"Expected image upload."},{status:400})}
- const photo=form.get("photo");
- if(!(photo instanceof File)||!TYPES.has(photo.type)||photo.size<1||photo.size>MAX_BYTES)
-  return NextResponse.json({error:"Upload a JPEG/PNG/WebP photo under 8 MB."},{status:400});
- const encoded=Buffer.from(await photo.arrayBuffer()).toString("base64");
+ let photos:Awaited<ReturnType<typeof readHousePhotos>>;
+ try{photos=await readHousePhotos(form)}catch(error){
+   return NextResponse.json({error:error instanceof Error?error.message:"Invalid photo selection."},{status:400});
+ }
  const model=process.env.GEMINI_MODEL||"gemini-3.5-flash-lite";
  const abort=new AbortController();
  const timer=setTimeout(()=>abort.abort(),60000);
@@ -47,8 +49,8 @@ export async function POST(request:NextRequest) {
     signal:abort.signal,
     body:JSON.stringify({
       contents:[{role:"user",parts:[
-       {text:"Create a normalized FRONT FACADE SCHEMATIC for a THREE.JS procedural mesh generator from this REAL home photograph. This is NOT photogrammetry. Output estimated visible layout only. Stories: 1 or 2. Specify approximate wall/siding and roof HEX colors (e.g. #eee9dd). Roof shape gable/hip/shed/flat, principal ridge direction, roof pitch. For each visible window, entry door, garage door return a normalized bounding rectangle relative to the main visible facade: x is left edge from 0..1, y is bottom edge from 0..1 (GROUND=0), width and height fractions 0..1. Do not infer windows or doors on unseen elevations. For porch posts use x positions from 0..1. Specify garage_side left/right/none and siding_style. Return front_gables: separate real front-facing triangular roof sections, each with center_x and width relative to visible facade (0..1), plus height_ratio for the rise relative to wall height (0.1..0.8). IMPORTANT: report gables from LEFT TO RIGHT as seen in the IMAGE, not from the street-facing building's internal coordinates. The dominant roof peak may be right of center, with a smaller projecting garage gable to the left. Preserve BOTH front-gable centers and relative roof heights, rather than averaging them into one triangle. This is important for overlapping farmhouse rooflines; do not invent gables that are not visible. Output no more than 18 openings, 8 posts, and 4 front gables. Exclude occluded/uncertain elements. Keep notes short, state uncertainties. All dimensions and geometry will be illustrative and NOT measured. If this is not a residential exterior, return no openings."},
-       {inlineData:{mimeType:photo.type,data:encoded}}
+       {text:"Create a precise normalized architectural SCHEMATIC for a procedural Blender model from the provided labeled photos of ONE REAL HOUSE. Focus on preserving the front-facing silhouette. If only one photo is supplied, describe ONLY the visible facade accurately: garage position, entrance, window count and bounding boxes, individual front gables, roof pitch, story count, color and siding type. Do NOT add invented front windows or replace arches with other styles. Use normalized facade coordinates: x=left edge, y=bottom edge (ground=0), width and height fractions 0..1. For additional LEFT/RIGHT/REAR photos, extract openings on those elevations into side_openings with corresponding view label. Each opening coordinate is relative to its OWN photographed elevation (x left-to-right from that viewpoint). Never place features on views that were not provided; use an empty list for unseen elevations. The FRONT photo's features must take priority and should never be averaged with side facades. Include separate front_gables (center_x,width,height_ratio); keep the larger main gable and smaller garage gable distinct. Report roof orientation, siding_style, garage_side, porch_posts based on visual evidence only. If FRONT image absent, openings should be [] unless you can confidently establish the front. No dimension is measured; depths and hidden walls must be treated as estimates. Maximum 18 front openings, 20 additional openings, 8 posts and 4 gables. Return JSON conforming to schema."},
+       ...photoParts(photos)
       ]}],
       generationConfig:{responseMimeType:"application/json",responseSchema:schema,temperature:0.1,maxOutputTokens:1400}
     })
