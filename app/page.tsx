@@ -448,6 +448,14 @@ export default function Home(){
      <label>Windows <input type="number" min="0" max="4" step="1" value={housePlan.upper_level?.windows??housePlan.dormer?.window_count??0} onChange={e=>updateUpperLevel("windows",Math.max(0,Math.min(4,Math.round(Number(e.target.value)))))} /></label>
     </div>
     <p>Choose the upper-level structure that best matches your home.</p>
+    {(housePlan.front_gables?.length??0)>0&&<><strong>Front gables</strong>
+      <p>Adjust the roof peaks separately when the home has overlapping front gables.</p>
+      {housePlan.front_gables?.map((gable,i)=><div className="facade-control-grid" key={i}>
+        <label>Gable {i+1} center <input type="number" min="0" max="1" step=".01" value={gable.center_x} onChange={e=>editPlan({...housePlan,front_gables:housePlan.front_gables?.map((g,j)=>j===i?{...g,center_x:Math.max(0,Math.min(1,Number(e.target.value)))}:g)})}/></label>
+        <label>Width <input type="number" min=".12" max=".95" step=".01" value={gable.width} onChange={e=>editPlan({...housePlan,front_gables:housePlan.front_gables?.map((g,j)=>j===i?{...g,width:Math.max(.12,Math.min(.95,Number(e.target.value)))}:g)})}/></label>
+        <label>Peak height <input type="number" min=".12" max=".8" step=".01" value={gable.height_ratio} onChange={e=>editPlan({...housePlan,front_gables:housePlan.front_gables?.map((g,j)=>j===i?{...g,height_ratio:Math.max(.12,Math.min(.8,Number(e.target.value)))}:g)})}/></label>
+      </div>)}
+    </>}
     <strong>Dormer</strong>
     <div className="facade-control-grid">
      <label>Position X <input type="number" min="0" max="1" step=".01" value={housePlan.dormer?.center_x??.5} onChange={e=>housePlan.dormer&&editPlan({...housePlan,dormer:{...housePlan.dormer,center_x:Number(e.target.value)}})}/></label>
