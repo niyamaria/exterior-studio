@@ -1,0 +1,86 @@
+{
+  "stories": 1,
+  "roof_type": "gable",
+  "roof_color": "#66666b",
+  "siding_color": "#62677b",
+  "trim_color": "#f0efe6",
+  "garage_color": "#eeeeeb",
+  "front_door_color": "#777866",
+  "shutter_color": "#303e40",
+  "window_frame_color": "#f6f4ee",
+  "window_glass_color": "#263f49",
+  "roof_ridge_direction": "left_to_right",
+  "roof_pitch": "steep",
+  "roof_feature": "central_dormer",
+  "dormer": {
+    "center_x": 0.5,
+    "width": 0.32,
+    "rise": 0.56,
+    "window_count": 2
+  },
+  "dormer_windows": [
+    {
+      "x": 0.442,
+      "y": 0.36,
+      "width": 0.05,
+      "height": 0.14
+    },
+    {
+      "x": 0.511,
+      "y": 0.36,
+      "width": 0.05,
+      "height": 0.14
+    }
+  ],
+  "porch": {
+    "x": 0.06,
+    "width": 0.88,
+    "depth": 0.16,
+    "railing": true
+  },
+  "porch_posts": [
+    0.1,
+    0.45,
+    0.9
+  ],
+  "entry_steps": {
+    "present": true,
+    "count": 4,
+    "center_x": 0.48,
+    "width": 0.19
+  },
+  "door": {
+    "x": 0.447,
+    "y": 0.15,
+    "width": 0.085,
+    "height": 0.255
+  },
+  "openings": [
+    {
+      "kind": "window",
+      "x": 0.175,
+      "y": 0.18,
+      "width": 0.16,
+      "height": 0.23,
+      "shape": "rectangular",
+      "shutters": false
+    },
+    {
+      "kind": "window",
+      "x": 0.61,
+      "y": 0.19,
+      "width": 0.15,
+      "height": 0.2,
+      "shape": "rectangular",
+      "shutters": false
+    }
+  ],
+  "garage_side": "none",
+  "siding_style": "lap",
+  "front_gables": [],
+  "side_openings": [],
+  "observed_views": [
+    "front"
+  ],
+  "architectural_notes": "Illustrative cottage test fixture manually estimated from the user-provided cottage photo; not measured dimensions, segmentation, or exact reconstruction."
+}
