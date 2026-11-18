@@ -255,6 +255,24 @@ export default function Home(){
  function updateDoor(field:"x"|"y"|"width"|"height",value:number){
    if(!housePlan)return;editPlan({...housePlan,door:{x:0,y:0,width:0,height:0,...housePlan.door,[field]:value}});
  }
+ function updateOpening(index:number,field:"x"|"y"|"width"|"height",value:number){
+   if(!housePlan)return;
+   const openings=housePlan.openings.map((opening,i)=>{
+     if(i!==index)return opening;
+     const next={...opening,[field]:value};
+     // Keep every opening inside the facade's normalized 0–1 range.
+     if(field==="x"||field==="width"){
+       next.x=Math.min(Math.max(0,next.x),Math.max(0,1-next.width));
+       next.width=Math.min(Math.max(.035,next.width),1-next.x);
+     }
+     if(field==="y"||field==="height"){
+       next.y=Math.min(Math.max(0,next.y),Math.max(0,1-next.height));
+       next.height=Math.min(Math.max(.045,next.height),1-next.y);
+     }
+     return next;
+   });
+   editPlan({...housePlan,openings});
+ }
  function updateSteps(field:"present"|"count"|"center_x"|"width",value:number|boolean){
    if(!housePlan)return;
    const base={present:false,count:0,center_x:.5,width:.15,...housePlan.entry_steps};
@@ -407,32 +425,36 @@ export default function Home(){
     {!photoSlots.some(p=>p.view==="front")&&<p>Add a labeled Front photo to use the facade overlay.</p>}
     <p>Colored outlines show the areas we detected.</p>
    </div>
-   <details className="facade-review-controls"><summary>Fine-tune the details <span>Door · Steps · Porch · Roof ↗</span></summary><div className="facade-fields">
-    <strong>Front door</strong>
+   <div className="facade-review-controls"><div className="facade-review-caption"><strong>Adjust your home</strong><span>Only open what you need.</span></div><div className="facade-fields">
+    <details className="component-adjustment"><summary>Front door <span>Move & size</span></summary><div className="component-adjustment-body">
     <div className="facade-control-grid">
      {(["x","y","width","height"] as const).map(field=><label key={field}>{field.toUpperCase()} <input type="number" step=".01" min="0" max="1" value={housePlan.door?.[field]??0} onChange={e=>updateDoor(field,Math.max(0,Math.min(1,Number(e.target.value))))}/></label>)}
     </div>
-    <strong>Ground and foundation elevation</strong>
+    </div></details>
+    <details className="component-adjustment"><summary>Foundation <span>Height</span></summary><div className="component-adjustment-body">
     <label className="facade-checkbox"><input type="checkbox" checked={!!housePlan.foundation?.raised} onChange={e=>updateFoundation("raised",e.target.checked)}/> Raised front porch / house floor</label>
     <div className="facade-control-grid">
      <label>Height (meters) <input type="number" step=".05" min="0" max="1.7" disabled={!housePlan.foundation?.raised} value={housePlan.foundation?.height??0} onChange={e=>updateFoundation("height",Math.max(0,Math.min(1.7,Number(e.target.value))))}/></label>
     </div>
     <p>The height is an estimate from the step count and visible foundation. It should raise the porch above the yard, not create another story.</p>
-    <strong>Entrance stairs</strong>
+    </div></details>
+    <details className="component-adjustment"><summary>Entrance steps <span>Count & position</span></summary><div className="component-adjustment-body">
     <label className="facade-checkbox"><input type="checkbox" checked={!!housePlan.entry_steps?.present} onChange={e=>updateSteps("present",e.target.checked)}/> Visible front steps</label>
     <div className="facade-control-grid">
       <label>Steps <input type="number" min="0" max="10" step="1" value={housePlan.entry_steps?.count??0} onChange={e=>updateSteps("count",Math.max(0,Math.min(10,Math.round(Number(e.target.value)))))} /></label>
       <label>Center X <input type="number" min="0" max="1" step=".01" value={housePlan.entry_steps?.center_x??.5} onChange={e=>updateSteps("center_x",Math.max(0,Math.min(1,Number(e.target.value))))}/></label>
       <label>Width <input type="number" min="0" max="1" step=".01" value={housePlan.entry_steps?.width??.15} onChange={e=>updateSteps("width",Math.max(0,Math.min(1,Number(e.target.value))))}/></label>
     </div>
-    <strong>Porch and columns</strong>
+    </div></details>
+    <details className="component-adjustment"><summary>Porch & columns <span>Size & posts</span></summary><div className="component-adjustment-body">
     <div className="facade-control-grid">
       <label>Left X <input type="number" min="0" max="1" step=".01" value={housePlan.porch?.x??0} onChange={e=>updatePorch("x",Math.max(0,Math.min(1,Number(e.target.value))))}/></label>
       <label>Width <input type="number" min="0" max="1" step=".01" value={housePlan.porch?.width??0} onChange={e=>updatePorch("width",Math.max(0,Math.min(1,Number(e.target.value))))}/></label>
       <label>Posts <input type="number" min="0" max="8" step="1" value={housePlan.porch_posts.length} onChange={e=>{const n=Math.max(0,Math.min(8,Math.round(Number(e.target.value))));const x=housePlan.porch?.x??.15,w=housePlan.porch?.width??.7;editPlan({...housePlan,porch_posts:Array.from({length:n},(_,i)=>x+w*(i+1)/(n+1))})}}/></label>
     </div>
     <label className="facade-checkbox"><input type="checkbox" checked={!!housePlan.porch?.railing} onChange={e=>updatePorch("railing",e.target.checked)}/> Porch railing</label>
-    <strong>Upper-level structure</strong>
+    </div></details>
+    <details className="component-adjustment"><summary>Upper level <span>Type & size</span></summary><div className="component-adjustment-body">
     <label className="upper-level-option">Type
      <select value={housePlan.upper_level?.type??(housePlan.roof_feature==="central_dormer"?"dormer":"none")}
       onChange={e=>updateUpperLevel("type",e.target.value)}>
@@ -448,22 +470,31 @@ export default function Home(){
      <label>Windows <input type="number" min="0" max="4" step="1" value={housePlan.upper_level?.windows??housePlan.dormer?.window_count??0} onChange={e=>updateUpperLevel("windows",Math.max(0,Math.min(4,Math.round(Number(e.target.value)))))} /></label>
     </div>
     <p>Choose the upper-level structure that best matches your home.</p>
-    {(housePlan.front_gables?.length??0)>0&&<><strong>Front gables</strong>
+    </div></details>
+    {(housePlan.front_gables?.length??0)>0&&<details className="component-adjustment"><summary>Front gables <span>Peaks & widths</span></summary><div className="component-adjustment-body">
       <p>Adjust the roof peaks separately when the home has overlapping front gables.</p>
       {housePlan.front_gables?.map((gable,i)=><div className="facade-control-grid" key={i}>
         <label>Gable {i+1} center <input type="number" min="0" max="1" step=".01" value={gable.center_x} onChange={e=>editPlan({...housePlan,front_gables:housePlan.front_gables?.map((g,j)=>j===i?{...g,center_x:Math.max(0,Math.min(1,Number(e.target.value)))}:g)})}/></label>
         <label>Width <input type="number" min=".12" max=".95" step=".01" value={gable.width} onChange={e=>editPlan({...housePlan,front_gables:housePlan.front_gables?.map((g,j)=>j===i?{...g,width:Math.max(.12,Math.min(.95,Number(e.target.value)))}:g)})}/></label>
         <label>Peak height <input type="number" min=".12" max=".8" step=".01" value={gable.height_ratio} onChange={e=>editPlan({...housePlan,front_gables:housePlan.front_gables?.map((g,j)=>j===i?{...g,height_ratio:Math.max(.12,Math.min(.8,Number(e.target.value)))}:g)})}/></label>
       </div>)}
-    </>}
-    <strong>Dormer</strong>
+    </div></details>}
+    <details className="component-adjustment"><summary>Dormer <span>Position & windows</span></summary><div className="component-adjustment-body">
     <div className="facade-control-grid">
      <label>Position X <input type="number" min="0" max="1" step=".01" value={housePlan.dormer?.center_x??.5} onChange={e=>housePlan.dormer&&editPlan({...housePlan,dormer:{...housePlan.dormer,center_x:Number(e.target.value)}})}/></label>
      <label>Width <input type="number" min="0" max=".75" step=".01" value={housePlan.dormer?.width??0} onChange={e=>housePlan.dormer&&editPlan({...housePlan,dormer:{...housePlan.dormer,width:Number(e.target.value)}})}/></label>
      <label>Upper windows <input type="number" min="0" max="4" step="1" value={housePlan.dormer?.window_count??0} onChange={e=>housePlan.dormer&&editPlan({...housePlan,dormer:{...housePlan.dormer,window_count:Math.round(Number(e.target.value))},dormer_windows:[]})}/></label>
     </div>
-    
-   </div></details>
+    </div></details>
+    {housePlan.openings.map((opening,index)=>opening.kind==="window"||opening.kind==="garage_door"?<details className="component-adjustment" key={"opening-"+index}>
+      <summary>{opening.kind==="garage_door"?"Garage door":"Window"} {housePlan.openings.slice(0,index+1).filter(o=>o.kind===opening.kind).length}<span>Move & size</span></summary>
+      <div className="component-adjustment-body"><div className="facade-control-grid">
+        {(["x","y","width","height"] as const).map(field=><label key={field}>{field==="x"?"X position":field==="y"?"Y position":field==="width"?"Width":"Height"}
+          <input aria-label={`${opening.kind==="garage_door"?"Garage door":"Window"} ${index+1} ${field}`} type="number" min="0" max="1" step=".01" value={opening[field]}
+          onChange={e=>updateOpening(index,field,Math.max(0,Math.min(1,Number(e.target.value))))}/></label>)}
+      </div><p>X and Y move this feature on the front of your home. Changes apply when you rebuild 3D.</p></div>
+    </details>:null)}
+   </div></div>
   </div>
  </section>}
  <details className="technical-options"><summary>Advanced model options <span>Blender &amp; layout tools +</span></summary>
