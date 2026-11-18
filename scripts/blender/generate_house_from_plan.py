@@ -138,17 +138,17 @@ def arch_trim(name, cx, front, bottom, width, height, color, category="trim"):
         previous=pt
 
 
-def shutters(name, cx, front, bottom, width, height):
+def shutters(name, cx, front, bottom, width, height, color="#30363a"):
     """Two raised shutter assemblies. Meshes stay in their own semantic collection."""
     strip=max(.15,min(.36,width*.19))
     for side in (-1,1):
         x=cx+side*(width/2+strip*.55+.08)
         box("%s_shutter_%s"%(name,"L" if side<0 else "R"),
-            "shutter",(x,front,bottom+height/2),(strip,.10,height*.92),"#30363a")
+            "shutter",(x,front,bottom+height/2),(strip,.10,height*.92),color)
         for i in range(1,5):
             z=bottom+height*.1+i*height*.15
             box("%s_shutter_slat_%s_%d"%(name,side,i),"shutter",
-                (x,front-.07,z),(strip*.82,.025,.018),"#454b4b")
+                (x,front-.07,z),(strip*.82,.025,.018),color)
 
 
 def generate(plan):
@@ -158,9 +158,12 @@ def generate(plan):
     # Do not make white roofing the same color as siding, which obscures form.
     if roof.lower() in ("#ffffff", "#fefefe", "#fafafa"):
         roof = "#4c5358"
-    trim = "#eeeae1"
-    garage = "#f0f0eb"
-    entry = "#6c5140"
+    trim = plan.get("trim_color") or "#eeeae1"
+    garage = plan.get("garage_color") or "#f0f0eb"
+    entry = plan.get("front_door_color") or "#6c5140"
+    shutter_color = plan.get("shutter_color") or "#30363a"
+    window_frame_color = plan.get("window_frame_color") or trim
+    glass_color = plan.get("window_glass_color") or "#344b5a"
 
     box("FRONT__wall_observed", "siding", (0, FRONT, H / 2), (W, .24, H), wall)
     box("REAR__wall_estimated", "siding", (0, -FRONT, H / 2), (W, .24, H), wall, True)
@@ -172,6 +175,17 @@ def generate(plan):
             x = -W / 2 + i * W / 26
             box("SIDING__batten_%02d" % i, "siding", (x, FRONT - .15, H / 2),
                 (.045, .04, H), wall)
+
+    elif plan.get("siding_style") == "lap":
+        # Shallow horizontal rows, rather than generic smooth-wall boxes.
+        for j in range(1, 18):
+            z = H * j / 18
+            box("SIDING__lap_front_%02d" % j, "siding",
+                (0, FRONT - .135, z), (W, .025, .032), wall)
+            box("SIDING__lap_left_%02d" % j, "siding",
+                (-W/2-.135, 0, z), (.025, D, .032), wall, True)
+            box("SIDING__lap_right_%02d" % j, "siding",
+                (W/2+.135, 0, z), (.025, D, .032), wall, True)
 
     eave = H + .1
     rise = {"low": 1.3, "medium": 2.1, "steep": 3.0}.get(plan.get("roof_pitch"), 2.1)
@@ -268,15 +282,15 @@ def generate(plan):
             box("DOOR__glazing_%02d" % i, "door", (x, front - .19, z + h * .12),
                 (w * .38, .035, h * .40), "#344955", False, True)
         else:
-            box("WINDOW__casing_%02d" % i, "trim", (x, front, z), (w + .19, .12, h + .20), trim)
-            box("WINDOW__glass_%02d" % i, "window", (x, front - .11, z), (w, .11, h), "#344b5a", False, True)
-            box("WINDOW__vertical_%02d" % i, "trim", (x, front - .20, z), (.05, .06, h), trim)
+            box("WINDOW__casing_%02d" % i, "trim", (x, front, z), (w + .19, .12, h + .20), window_frame_color)
+            box("WINDOW__glass_%02d" % i, "window", (x, front - .11, z), (w, .11, h), glass_color, False, True)
+            box("WINDOW__vertical_%02d" % i, "trim", (x, front - .20, z), (.05, .06, h), window_frame_color)
             box("WINDOW__sill_%02d" % i, "trim", (x, front - .20, z - h / 2 - .08),
-                (w + .27, .24, .10), trim)
+                (w + .27, .24, .10), window_frame_color)
             if shape == "arched":
                 arch_trim("WINDOW__arch_%02d"%i,x,front-.23,z-h/2,w,h,trim)
             if has_shutters:
-                shutters("WINDOW__%02d"%i,x,front-.18,z-h/2,w,h)
+                shutters("WINDOW__%02d"%i,x,front-.18,z-h/2,w,h,shutter_color)
 
     # SIDE/REAR: place ONLY openings actually observed in uploaded photos.
     # All elevations remain dimensionally estimated. Coordinates are local
