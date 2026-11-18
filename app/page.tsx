@@ -283,7 +283,7 @@ export default function Home(){
     const layout=await planned.json();
     if(!planned.ok)throw new Error(layout.error||"Gemini could not interpret these photos.");
     const plan=layout.plan as HousePlan;
-    const nextColors={...defaults,siding:plan.siding_color,roof:plan.roof_color,garage:"#eeede7"};
+    const nextColors={...defaults,siding:plan.siding_color,roof:plan.roof_color,trim:plan.trim_color||defaults.trim,garage:plan.garage_color||defaults.garage,shutter:plan.shutter_color||defaults.shutter};
     setPending(nextColors);setApplied(nextColors);setMirrorFacade(false);setRoofCorrection("auto");
     setHousePlan(plan);
     const response=await fetch("/api/build-blender",{
@@ -311,7 +311,7 @@ export default function Home(){
    const data=await response.json();
    if(!response.ok)throw new Error(data.error||"Couldn't generate schematic layout.");
    const plan=data.plan as HousePlan;
-   const nextColors={...defaults,siding:plan.siding_color,roof:plan.roof_color,garage:"#eeede7"};
+   const nextColors={...defaults,siding:plan.siding_color,roof:plan.roof_color,trim:plan.trim_color||defaults.trim,garage:plan.garage_color||defaults.garage,shutter:plan.shutter_color||defaults.shutter};
    setPending(nextColors);setApplied(nextColors);setMirrorFacade(false);setRoofCorrection("auto");setBlenderUrl(null);blenderBlob.current=null;setHousePlan(plan);
   }catch(err){setGenerationError(err instanceof Error?err.message:"Failed to generate 3D layout.")}
   finally{setGenerating(false)}
