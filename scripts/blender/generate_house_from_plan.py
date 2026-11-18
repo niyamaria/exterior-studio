@@ -122,6 +122,35 @@ def gable(prefix, x0, x1, y0, yr, nose, tail, wall, roof, trim, estimated=False)
                  .028, wall, estimated)
 
 
+def arch_trim(name, cx, front, bottom, width, height, color, category="trim"):
+    """Decorative arch edge built as real thin 3D beams above a rectangular opening."""
+    radius=max(.20,width*.5)
+    rise=min(radius,max(.18,height*.36))
+    steps=12
+    previous=None
+    for j in range(steps+1):
+        t=math.pi*(1-j/steps)
+        x=cx+radius*math.cos(t)
+        z=bottom+height-rise+rise*math.sin(t)
+        pt=(x,front,z)
+        if previous is not None:
+            beam("%s_arc_%02d"%(name,j),category,previous,pt,.070,color)
+        previous=pt
+
+
+def shutters(name, cx, front, bottom, width, height):
+    """Two raised shutter assemblies. Meshes stay in their own semantic collection."""
+    strip=max(.15,min(.36,width*.19))
+    for side in (-1,1):
+        x=cx+side*(width/2+strip*.55+.08)
+        box("%s_shutter_%s"%(name,"L" if side<0 else "R"),
+            "shutter",(x,front,bottom+height/2),(strip,.10,height*.92),"#30363a")
+        for i in range(1,5):
+            z=bottom+height*.1+i*height*.15
+            box("%s_shutter_slat_%s_%d"%(name,side,i),"shutter",
+                (x,front-.07,z),(strip*.82,.025,.018),"#454b4b")
+
+
 def generate(plan):
     H = 6.4 if int(plan["stories"]) == 2 else 4.0
     wall = plan.get("siding_color", "#ebe9e3")
@@ -218,6 +247,8 @@ def generate(plan):
             z = max(h / 2 + .04, min(H - h / 2 - .06,
                 normalized_center_y * H))
             front = FRONT - .22
+        shape = opening.get("shape", "rectangular")
+        has_shutters = bool(opening.get("shutters", False))
         if kind == "garage_door":
             box("GARAGE__frame_%02d" % i, "trim", (x, front, z), (w + .27, .12, h + .22), trim)
             box("GARAGE__door_%02d" % i, "garage", (x, front - .10, z), (w, .11, h), garage)
@@ -225,6 +256,8 @@ def generate(plan):
             for r in range(1, 4):
                 box("GARAGE__row_%02d_%d" % (i, r), "garage",
                     (x, front - .18, z - h / 2 + r * h / 4), (w, .04, .025), "#bec4c2", False, True)
+            if shape == "arched":
+                arch_trim("GARAGE__arch_%02d"%i,x,front-.19,z-h/2,w,h,trim)
             for k in range(cols):
                 bx = x - w / 2 + (k + .5) * w / cols
                 box("GARAGE__lite_%02d_%d" % (i, k), "garage",
@@ -240,6 +273,10 @@ def generate(plan):
             box("WINDOW__vertical_%02d" % i, "trim", (x, front - .20, z), (.05, .06, h), trim)
             box("WINDOW__sill_%02d" % i, "trim", (x, front - .20, z - h / 2 - .08),
                 (w + .27, .24, .10), trim)
+            if shape == "arched":
+                arch_trim("WINDOW__arch_%02d"%i,x,front-.23,z-h/2,w,h,trim)
+            if has_shutters:
+                shutters("WINDOW__%02d"%i,x,front-.18,z-h/2,w,h)
 
     # SIDE/REAR: place ONLY openings actually observed in uploaded photos.
     # All elevations remain dimensionally estimated. Coordinates are local
