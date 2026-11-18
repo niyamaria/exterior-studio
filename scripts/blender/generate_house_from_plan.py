@@ -275,6 +275,10 @@ def generate(plan):
 
     # Predicted normalized front facade boxes: image-derived estimates only.
     for i, opening in enumerate(plan.get("openings", [])[:18]):
+        # The dormer is constructed separately; its windows are already created
+        # using the observed count. Avoid duplicating them on ground-floor walls.
+        if has_dormer and opening.get("kind") == "window" and float(opening.get("y",0)) > .60:
+            continue
         kind = opening["kind"]
         x = (float(opening["x"]) + float(opening["width"]) / 2 - .5) * W
         w = max(.45, min(W * .6, float(opening["width"]) * W))
