@@ -124,3 +124,18 @@ This is a **specific reference-based approximate reconstruction**, not an arbitr
 Some older procedural GLBs (including `real_reference_house_editable.glb`) encode **Z as the vertical axis**, while Three.js expects **Y-up**. Exterior Studio now detects a large XY-ground mesh in the imported GLB, rotates the asset into the web viewer's coordinate system, and automatically reframes the camera around the building rather than the oversized site plane. A front-facing three-quarter camera is chosen for this legacy house. Native Blender glTF files already exported Y-up should not be rotated.
 
 If you imported before updating, run `git pull`, restart `npm run dev`, refresh and **Import detailed GLB** again. This corrects the presentation transform; it does not alter the original GLB file.
+
+
+## 1–4 real-house photos: quick and multi-view workflows
+
+**New:** Click **Add house photos (0/4)** and upload one to four authorized images of the **same house**. Each preview has an editable viewpoint label: **Front**, **Left side**, **Right side**, or **Rear**. Use only one photo for a quick facade-first estimate, or add more views for additional architectural evidence. There is one image per viewpoint; supported files are JPG/PNG/WebP, max 8 MB each and 24 MB total.
+
+**One-click path:** Click **Build 3D from photos** to run the Gemini architectural plan and local Blender generator automatically. Or use the separate **Analyze house photo**, **Generate schematic 3D**, and **Build with Blender** buttons to inspect and correct intermediate results. Your existing material editing and GLB/PNG exports remain.
+
+**Single photo:** Gemini is instructed to prioritize the photographed facade, keep its gable peaks separate, preserve visible window/garage placement, and distinguish arched versus rectangular openings plus shutters. Blender now generates basic arched trims and shutter mesh assemblies when the plan identifies them. Unseen elevations are provisional geometry, not verified.
+
+**Multiple photos:** Gemini consumes all selected photos in one request with explicit viewpoint labels; the schema can return observed **side/rear openings**, which Blender places on the corresponding elevations. These observations may help consistency but are NOT photogrammetry, calibrated measurements, or proof of accuracy. Actual roof dimensions, depth and hidden surfaces are still inferred.
+
+**Current limitations:** Adding more photographs can improve the result when they depict the same building from distinct clear angles, but it cannot guarantee architectural fidelity. The model still uses estimated front/side normalized boxes and a procedural component library. For a photo-exact match, we still need image masks, landmark calibration, explicit roof intersections, and an alignment/correction editor. The existing detailed imported GLB is a fidelity benchmark, not something the automated pipeline reproduces perfectly.
+
+If Gemini is overloaded, retry later or import the detailed GLB directly. The local Blender step requires Blender installed on the machine running the Next.js dev server. No new API key is needed.
