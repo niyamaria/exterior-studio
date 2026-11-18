@@ -139,3 +139,9 @@ If you imported before updating, run `git pull`, restart `npm run dev`, refresh 
 **Current limitations:** Adding more photographs can improve the result when they depict the same building from distinct clear angles, but it cannot guarantee architectural fidelity. The model still uses estimated front/side normalized boxes and a procedural component library. For a photo-exact match, we still need image masks, landmark calibration, explicit roof intersections, and an alignment/correction editor. The existing detailed imported GLB is a fidelity benchmark, not something the automated pipeline reproduces perfectly.
 
 If Gemini is overloaded, retry later or import the detailed GLB directly. The local Blender step requires Blender installed on the machine running the Next.js dev server. No new API key is needed.
+
+## Gemini request timeouts
+
+If **Analyze house photo** or **Build 3D from photos** shows a timeout, the browser is working but Gemini did not respond before the request deadline. The app now uses separate per-attempt timeouts with at most two calls on connection errors and HTTP 5xx, instead of the previous shared 60-second timeout that made retries ineffective. Larger uploaded images are also resized to at most 1600 pixels on their long side for API analysis when this reduces their size; the original local photo preview remains unchanged. No change is needed to the API key or billing. Gemini can still be temporarily unavailable, and free-tier rate limits may still apply. Do not repeatedly hammer the API during outages.
+
+For a quick smoke test, use **Build 3D from photos** (one Gemini planning call + local Blender), rather than running both the analysis and the builder unnecessarily.
