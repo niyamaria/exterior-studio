@@ -11,6 +11,8 @@ export type HousePlan = {
   garage_side?:"left"|"right"|"none";
   siding_style?:"board_and_batten"|"lap"|"stucco"|"other";
   front_gables?:Array<{center_x:number;width:number;height_ratio:number}>;
+  side_openings?:Array<{view:"left"|"right"|"rear";kind:"window"|"entry_door"|"garage_door";x:number;y:number;width:number;height:number}>;
+  observed_views?:Array<"front"|"left"|"right"|"rear">;
 };
 export function isHousePlan(value:unknown):value is HousePlan {
  if(!value||typeof value!=="object")return false;
@@ -24,6 +26,8 @@ export function isHousePlan(value:unknown):value is HousePlan {
   typeof p.architectural_notes==="string" &&
   Array.isArray(p.porch_posts) && p.porch_posts.every(x=>typeof x==="number"&&Number.isFinite(x)) &&
   (p.front_gables===undefined || (Array.isArray(p.front_gables) && p.front_gables.every(g=>[g.center_x,g.width,g.height_ratio].every(x=>Number.isFinite(x))))) &&
+  (p.observed_views===undefined || (Array.isArray(p.observed_views) && p.observed_views.every(v=>["front","left","right","rear"].includes(v)))) &&
+  (p.side_openings===undefined || (Array.isArray(p.side_openings) && p.side_openings.every(o=>o && ["left","right","rear"].includes(o.view) && kinds.includes(o.kind) && [o.x,o.y,o.width,o.height].every(Number.isFinite)))) &&
   Array.isArray(p.openings) && p.openings.every(o=>o&&kinds.includes(o.kind) &&
     [o.x,o.y,o.width,o.height].every(x=>typeof x==="number"&&Number.isFinite(x)));
 }
