@@ -235,11 +235,17 @@ def generate(plan):
               (dx0,dy,dormer_top-.72)],wall,True)
         gable("DORMER",dx0,dx1,dormer_top-.72,dormer_top,
               dy,dy+2.1,wall,roof,trim,True)
-        for j in range(max(0,min(4,int(dormer.get("window_count",2))))):
+        observed_dormer_windows=plan.get("dormer_windows") or []
+        for j in range(max(0,min(4,len(observed_dormer_windows) if observed_dormer_windows else int(dormer.get("window_count",2))))):
             count=max(1,min(4,int(dormer.get("window_count",2))))
             ww=min(.64,dw/(count+1)*.62)
             cx=dx0+(j+1)*dw/(count+1)
             wz=dormer_base+.48
+            if observed_dormer_windows:
+                anchor=observed_dormer_windows[j]
+                cx=max(dx0+.2,min(dx1-.2,(float(anchor["x"])+float(anchor["width"])/2-.5)*W))
+                ww=max(.23,min(.82,float(anchor["width"])*W))
+                wz=max(dormer_base+.30,min(dormer_top-.56,dormer_base+.48))
             box("DORMER__window_casing_%02d"%j,"trim",
                 (cx,dy-.14,wz),(ww+.15,.12,.96),window_frame_color)
             box("DORMER__window_glass_%02d"%j,"window",
@@ -274,7 +280,15 @@ def generate(plan):
     # front face rather than clamping it to a ground-floor rectangular wall.
 
     # Predicted normalized front facade boxes: image-derived estimates only.
-    for i, opening in enumerate(plan.get("openings", [])[:18]):
+    primary_door=plan.get("door") or {}
+    door_visible=float(primary_door.get("width",0))>.025 and float(primary_door.get("height",0))>.08
+    front_openings=list(plan.get("openings", [])[:18])
+    if door_visible:
+        front_openings=[o for o in front_openings if o.get("kind")!="entry_door"]
+        front_openings.append(dict(kind="entry_door", x=primary_door["x"],
+            y=primary_door["y"], width=primary_door["width"],
+            height=primary_door["height"],shape="rectangular",shutters=False))
+    for i, opening in enumerate(front_openings):
         # The dormer is constructed separately; its windows are already created
         # using the observed count. Avoid duplicating them on ground-floor walls.
         if has_dormer and opening.get("kind") == "window" and float(opening.get("y",0)) > .60:
@@ -328,6 +342,25 @@ def generate(plan):
                 arch_trim("WINDOW__arch_%02d"%i,x,front-.23,z-h/2,w,h,trim)
             if has_shutters:
                 shutters("WINDOW__%02d"%i,x,front-.18,z-h/2,w,h,shutter_color)
+
+    # Raised porch entry and front steps are located from explicit photo
+    # anchors; do not fabricate stairs on homes without visible steps.
+    steps=plan.get("entry_steps") or {}
+    if steps.get("present") and int(steps.get("count",0))>0:
+        n=max(1,min(10,int(steps["count"])))
+        cx=(float(steps.get("center_x",.5))-.5)*W
+        sw=max(.75,min(4.0,float(steps.get("width",.15))*W))
+        # Procedural risers sized for visualization, not measured construction.
+        riser=.16
+        tread=.36
+        for i in range(n):
+            # Top step sits nearest porch; lower steps extend toward viewer.
+            level=n-i
+            box("STEPS__tread_%02d"%i,"steps",
+                (cx,FRONT-1.95-i*tread,level*riser/2),
+                (sw+.15, tread, level*riser),"#aaa79f",True)
+        box("STEPS__entry_landing","steps",
+            (cx,FRONT-1.48,n*riser-.05),(sw+.4,.72,.10),"#b7b3a9",True)
 
     # SIDE/REAR: place ONLY openings actually observed in uploaded photos.
     # All elevations remain dimensionally estimated. Coordinates are local
