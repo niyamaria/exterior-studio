@@ -153,3 +153,9 @@ Gemini scene planning now requests distinct six-digit HEX estimates for siding, 
 The Material Studio starts with the detected roof/siding/trim/garage/shutter colors and displays the exact current color plus an adjustable color picker in case lighting, shadows, or Gemini's visual estimate make it inaccurate. These values are visual estimates derived from the real photograph, not verified manufacturer paint names or color-calibrated readings.
 
 Regenerate from the uploaded photo after pulling these changes; an existing static GLB will not update automatically.
+
+## Facade geometry refinement: central dormer and porch
+
+The planner now distinguishes a **central roof dormer** from a full-width front gable. A central dormer preserves the wide transverse main roof, constructs a separate raised dormer gable and pairs its windows above the main eave. Dormer windows are not duplicated on the ground-floor wall. The planner also returns normalized porch extent `{x,width,depth,railing}` so Blender can build columns, soffit, porch floor, and optional railing across the photographed span.
+
+**Retest:** `git pull`, restart `npm run dev`, upload the reference again and click **Build 3D from photos**. The new Gemini plan and Blender export are required; a previously generated GLB remains unchanged. One photo cannot provide measured depths or hidden side/back details. These are structurally informed approximations, not photogrammetric reconstruction, and the new code still needs a first live validation in Blender.
