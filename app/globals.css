@@ -98,3 +98,5 @@
 .facade-checkbox input{accent-color:#3e6851}
 .facade-review-controls>p{font-size:11px;color:#63766a;line-height:1.6}
 @media(max-width:850px){.facade-review-layout{grid-template-columns:1fr}}
+
+.upper-level-option{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:#526959}.upper-level-option select{max-width:68%;background:white;color:#304c39;border:1px solid #cbd7ce;border-radius:5px;padding:8px}
