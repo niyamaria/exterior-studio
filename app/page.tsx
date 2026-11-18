@@ -44,6 +44,7 @@ export default function Home(){
  const [photoSlots,setPhotoSlots]=useState<PhotoSlot[]>([]);
  const [photoPreviews,setPhotoPreviews]=useState<string[]>([]);
  const [photoInputError,setPhotoInputError]=useState("");
+ const [autoBuilding,setAutoBuilding]=useState(false);
  useEffect(()=>{
    const urls=photoSlots.map(p=>URL.createObjectURL(p.file));
    setPhotoPreviews(urls);
@@ -248,6 +249,34 @@ export default function Home(){
   if(!blenderBlob.current||!blenderUrl)return;
   const a=document.createElement("a");a.href=blenderUrl;a.download="exterior-studio-semantic-house.glb";a.click();
  }
+ async function buildDirectlyFromPhotos(){
+  if(!photoSlots.length)return;
+  setAutoBuilding(true);setGenerationError("");setBlenderError("");setAnalysisError("");
+  try{
+    const form=new FormData();attachPhotos(form);
+    const planned=await fetch("/api/scene-plan",{method:"POST",body:form});
+    const layout=await planned.json();
+    if(!planned.ok)throw new Error(layout.error||"Gemini could not interpret these photos.");
+    const plan=layout.plan as HousePlan;
+    const nextColors={...defaults,siding:plan.siding_color,roof:plan.roof_color,garage:"#eeede7"};
+    setPending(nextColors);setApplied(nextColors);setMirrorFacade(false);setRoofCorrection("auto");
+    setHousePlan(plan);
+    const response=await fetch("/api/build-blender",{
+      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(plan)
+    });
+    if(!response.ok){
+      const err=await response.json();
+      throw new Error((err.error||"Blender generation failed.")+" The schematic plan is still available for correction.");
+    }
+    const blob=await response.blob();
+    const url=URL.createObjectURL(blob);
+    if(lastBlenderUrl.current)URL.revokeObjectURL(lastBlenderUrl.current);
+    lastBlenderUrl.current=url;blenderBlob.current=blob;
+    setManualModel(false);setBlenderUrl(url);
+  }catch(error){
+    setGenerationError(error instanceof Error?error.message:"Could not create the house model.");
+  }finally{setAutoBuilding(false)}
+ }
  async function generatePhotoModel(){
   if(!photoSlots.length)return;
   setGenerating(true);setGenerationError("");
@@ -283,6 +312,7 @@ export default function Home(){
  {photoInputError&&<div className="analysis-error photo-upload-error" role="alert">{photoInputError}</div>}
  {photoSlots.length>0&&<section className="photo-selection" aria-label="House photo viewpoints">
  <div className="photo-selection-heading"><div><strong>Your house reference photos</strong><p>{photoSlots.length===1?"Quick mode · Match the visible facade first; unphotographed elevations remain estimated.":"Multi-view mode · Gemini can cross-reference these elevations. Depth and hidden geometry are still estimates."}</p></div><span className="photo-count">{photoSlots.length} / 4 views</span></div>
+ <div className="photo-direct-actions"><button className="dark" onClick={buildDirectlyFromPhotos} disabled={autoBuilding||generating||blenderBusy}>{autoBuilding?"Analyzing and building in Blender…":"Build 3D from photos →"}</button><span>{photoSlots.length===1?"One-photo mode: prioritize the photographed elevation.":"Multi-photo mode: constrain each supplied elevation."} Geometry remains estimated, not photogrammetric.</span></div>
  <div className="photo-selection-grid">{photoSlots.map((slot,index)=><div className="photo-selection-item" key={index}>
    {photoPreviews[index]&&<img src={photoPreviews[index]} alt={viewNames[slot.view]+" house photograph"}/>}
    <div className="photo-selection-meta"><select aria-label={"Photo "+(index+1)+" viewpoint"} value={slot.view} onChange={e=>changeView(index,e.target.value as HouseView)}>{viewOrder.map(view=><option key={view} value={view} disabled={photoSlots.some((p,i)=>i!==index&&p.view===view)}>{viewNames[view]}</option>)}</select><button onClick={()=>removePhoto(index)} aria-label={"Remove photo "+(index+1)}>Remove</button></div>
