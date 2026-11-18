@@ -402,7 +402,9 @@ def generate(plan):
                 secondary_garage_span[0]-.30 <= x <= secondary_garage_span[1]+.30):
             front=secondary_garage_span[2]-.24
             h=max(2.15,min(2.65,h))
-            z=h/2+.06
+            # Preserve reviewed Y edits while preventing the door from
+            # intersecting the foundation or extending above the wall.
+            z=max(h/2+.06,min(H-h/2-.06,normalized_center_y*H))
         if kind == "entry_door":
             h=max(2.10,min(2.55,h))
             w=max(.88,min(1.35,w))
