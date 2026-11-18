@@ -82,5 +82,9 @@
   "observed_views": [
     "front"
   ],
-  "architectural_notes": "Illustrative cottage test fixture manually estimated from the user-provided cottage photo; not measured dimensions, segmentation, or exact reconstruction."
+  "architectural_notes": "Illustrative cottage test fixture manually estimated from the user-provided cottage photo; not measured dimensions, segmentation, or exact reconstruction.",
+  "foundation": {
+    "raised": true,
+    "height": 0.68
+  }
 }
