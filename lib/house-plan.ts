@@ -19,6 +19,9 @@ export type HousePlan = {
   front_gables?:Array<{center_x:number;width:number;height_ratio:number}>;
   side_openings?:Array<{view:"left"|"right"|"rear";kind:"window"|"entry_door"|"garage_door";x:number;y:number;width:number;height:number}>;
   observed_views?:Array<"front"|"left"|"right"|"rear">;
+  roof_feature?:"front_gable"|"central_dormer"|"none";
+  dormer?:{center_x:number;width:number;rise:number;window_count:number};
+  porch?:{x:number;width:number;depth:number;railing:boolean};
 };
 export function isHousePlan(value:unknown):value is HousePlan {
  if(!value||typeof value!=="object")return false;
@@ -34,6 +37,9 @@ export function isHousePlan(value:unknown):value is HousePlan {
   (p.front_gables===undefined || (Array.isArray(p.front_gables) && p.front_gables.every(g=>[g.center_x,g.width,g.height_ratio].every(x=>Number.isFinite(x))))) &&
   (p.observed_views===undefined || (Array.isArray(p.observed_views) && p.observed_views.every(v=>["front","left","right","rear"].includes(v)))) &&
   (p.side_openings===undefined || (Array.isArray(p.side_openings) && p.side_openings.every(o=>o && ["left","right","rear"].includes(o.view) && kinds.includes(o.kind) && [o.x,o.y,o.width,o.height].every(Number.isFinite)))) &&
+  (p.roof_feature===undefined||["front_gable","central_dormer","none"].includes(p.roof_feature)) &&
+  (p.dormer===undefined||(Number.isFinite(p.dormer.center_x)&&Number.isFinite(p.dormer.width)&&Number.isFinite(p.dormer.rise)&&Number.isInteger(p.dormer.window_count))) &&
+  (p.porch===undefined||(Number.isFinite(p.porch.x)&&Number.isFinite(p.porch.width)&&Number.isFinite(p.porch.depth)&&typeof p.porch.railing==="boolean")) &&
   Array.isArray(p.openings) && p.openings.every(o=>o&&kinds.includes(o.kind) &&
     [o.x,o.y,o.width,o.height].every(x=>typeof x==="number"&&Number.isFinite(x)) &&
     (o.shape===undefined||["arched","rectangular"].includes(o.shape)) &&
