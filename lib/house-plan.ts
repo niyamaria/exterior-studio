@@ -31,5 +31,5 @@ export function isHousePlan(value:unknown):value is HousePlan {
   Array.isArray(p.openings) && p.openings.every(o=>o&&kinds.includes(o.kind) &&
     [o.x,o.y,o.width,o.height].every(x=>typeof x==="number"&&Number.isFinite(x)) &&
     (o.shape===undefined||["arched","rectangular"].includes(o.shape)) &&
-    (o.shutters===undefined||typeof o.shutters==="boolean")));
+    (o.shutters===undefined||typeof o.shutters==="boolean"));
 }
