@@ -241,6 +241,51 @@ def generate(plan):
             box("WINDOW__sill_%02d" % i, "trim", (x, front - .20, z - h / 2 - .08),
                 (w + .27, .24, .10), trim)
 
+    # SIDE/REAR: place ONLY openings actually observed in uploaded photos.
+    # All elevations remain dimensionally estimated. Coordinates are local
+    # image left-to-right as viewed from outside each elevation.
+    observed=set(plan.get("observed_views", []))
+    for i, opening in enumerate(plan.get("side_openings", [])[:20]):
+        view=opening.get("view")
+        if view not in observed or view not in ("left", "right", "rear"):
+            continue
+        kind=opening.get("kind", "window")
+        u=max(.02,min(.98,float(opening.get("x", 0)) + float(opening.get("width", .1)) / 2))
+        v=max(.03,min(.97,float(opening.get("y", 0)) + float(opening.get("height", .1)) / 2))
+        length=D if view in ("left","right") else W
+        width=max(.33,min(length*.52,float(opening.get("width", .1))*length))
+        height=max(.38,min(H*.8,float(opening.get("height", .15))*H))
+        z=max(height/2+.08,min(H-height/2-.06,v*H))
+        if view=="left":
+            # Viewed looking toward +X, image right points toward -Y.
+            origin=(-W/2-.20, (0.5-u)*D, z)
+            dims=(.11,width,height)
+            trimdims=(.13,width+.19,height+.18)
+            glassloc=(-W/2-.30,origin[1],z)
+        elif view=="right":
+            origin=(W/2+.20,(u-.5)*D,z)
+            dims=(.11,width,height)
+            trimdims=(.13,width+.19,height+.18)
+            glassloc=(W/2+.30,origin[1],z)
+        else:
+            # Rear photograph's left appears on building world +X.
+            origin=((.5-u)*W,-FRONT+.20,z)
+            dims=(width,.11,height)
+            trimdims=(width+.19,.13,height+.18)
+            glassloc=(origin[0],-FRONT+.30,z)
+        prefix="OBSERVED_%s_%02d" % (view.upper(),i)
+        box(prefix+"_casing","trim",origin,trimdims,trim,False)
+        color=garage if kind=="garage_door" else entry if kind=="entry_door" else "#334d59"
+        klass="garage" if kind=="garage_door" else "door" if kind=="entry_door" else "window"
+        box(prefix+"_infill",klass,glassloc,dims,color,False,True)
+        if kind=="window":
+            if view in ("left","right"):
+                box(prefix+"_mullion","trim",(glassloc[0]*1.002,glassloc[1],z),
+                    (.06,.045,height),trim,False)
+            else:
+                box(prefix+"_mullion","trim",(glassloc[0],glassloc[1]*1.002,z),
+                    (.045,.06,height),trim,False)
+
     posts = plan.get("porch_posts", [])[:8]
     if posts:
         xs = [(float(x) - .5) * W for x in posts]
