@@ -45,6 +45,7 @@ export default function Home(){
  const [photoPreviews,setPhotoPreviews]=useState<string[]>([]);
  const [photoInputError,setPhotoInputError]=useState("");
  const [autoBuilding,setAutoBuilding]=useState(false);
+ const [reviewReady,setReviewReady]=useState(false);
  useEffect(()=>{
    const urls=photoSlots.map(p=>URL.createObjectURL(p.file));
    setPhotoPreviews(urls);
@@ -53,7 +54,7 @@ export default function Home(){
  function resetGenerated(){
    setManualModel(false);setAnalysis(null);setAnalysisError("");
    setHousePlan(null);setMirrorFacade(false);setRoofCorrection("auto");
-   setBlenderUrl(null);blenderBlob.current=null;setGenerationError("");
+   setBlenderUrl(null);blenderBlob.current=null;setGenerationError("");setReviewReady(false);
  }
  function choosePhotos(incoming:FileList|null){
    if(!incoming)return;
@@ -239,6 +240,22 @@ export default function Home(){
  // Rebuild only when a different photo plan is created or reset.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[housePlan,mirrorFacade,roofCorrection,blenderUrl]);
+ function editPlan(next:HousePlan){
+   setHousePlan(next);setBlenderUrl(null);blenderBlob.current=null;setReviewReady(true);
+ }
+ function updateDoor(field:"x"|"y"|"width"|"height",value:number){
+   if(!housePlan)return;editPlan({...housePlan,door:{x:0,y:0,width:0,height:0,...housePlan.door,[field]:value}});
+ }
+ function updateSteps(field:"present"|"count"|"center_x"|"width",value:number|boolean){
+   if(!housePlan)return;
+   const base={present:false,count:0,center_x:.5,width:.15,...housePlan.entry_steps};
+   editPlan({...housePlan,entry_steps:{...base,[field]:value}});
+ }
+ function updatePorch(field:"x"|"width"|"depth"|"railing",value:number|boolean){
+   if(!housePlan)return;
+   const base={x:0,width:0,depth:.12,railing:false,...housePlan.porch};
+   editPlan({...housePlan,porch:{...base,[field]:value}});
+ }
  function importDetailedGlb(file:File|null){
   if(!file)return;
   if(!file.name.toLowerCase().endsWith(".glb")){setBlenderError("Choose an exported .glb model.");return;}
@@ -286,18 +303,9 @@ export default function Home(){
     const nextColors={...defaults,siding:plan.siding_color,roof:plan.roof_color,trim:plan.trim_color||defaults.trim,garage:plan.garage_color||defaults.garage,shutter:plan.shutter_color||defaults.shutter};
     setPending(nextColors);setApplied(nextColors);setMirrorFacade(false);setRoofCorrection("auto");
     setHousePlan(plan);
-    const response=await fetch("/api/build-blender",{
-      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(plan)
-    });
-    if(!response.ok){
-      const err=await response.json();
-      throw new Error((err.error||"Blender generation failed.")+" The schematic plan is still available for correction.");
-    }
-    const blob=await response.blob();
-    const url=URL.createObjectURL(blob);
-    if(lastBlenderUrl.current)URL.revokeObjectURL(lastBlenderUrl.current);
-    lastBlenderUrl.current=url;blenderBlob.current=blob;
-    setManualModel(false);setBlenderUrl(url);
+    // Geometry must be reviewed against the real photo before export.
+    setBlenderUrl(null);blenderBlob.current=null;
+    setReviewReady(true);
   }catch(error){
     setGenerationError(error instanceof Error?error.message:"Could not create the house model.");
   }finally{setAutoBuilding(false)}
@@ -312,7 +320,7 @@ export default function Home(){
    if(!response.ok)throw new Error(data.error||"Couldn't generate schematic layout.");
    const plan=data.plan as HousePlan;
    const nextColors={...defaults,siding:plan.siding_color,roof:plan.roof_color,trim:plan.trim_color||defaults.trim,garage:plan.garage_color||defaults.garage,shutter:plan.shutter_color||defaults.shutter};
-   setPending(nextColors);setApplied(nextColors);setMirrorFacade(false);setRoofCorrection("auto");setBlenderUrl(null);blenderBlob.current=null;setHousePlan(plan);
+   setPending(nextColors);setApplied(nextColors);setMirrorFacade(false);setRoofCorrection("auto");setBlenderUrl(null);blenderBlob.current=null;setHousePlan(plan);setReviewReady(true);
   }catch(err){setGenerationError(err instanceof Error?err.message:"Failed to generate 3D layout.")}
   finally{setGenerating(false)}
  }
@@ -337,7 +345,7 @@ export default function Home(){
  {photoInputError&&<div className="analysis-error photo-upload-error" role="alert">{photoInputError}</div>}
  {photoSlots.length>0&&<section className="photo-selection" aria-label="House photo viewpoints">
  <div className="photo-selection-heading"><div><strong>Your house reference photos</strong><p>{photoSlots.length===1?"Quick mode · Match the visible facade first; unphotographed elevations remain estimated.":"Multi-view mode · Gemini can cross-reference these elevations. Depth and hidden geometry are still estimates."}</p></div><span className="photo-count">{photoSlots.length} / 4 views</span></div>
- <div className="photo-direct-actions"><button className="dark" onClick={buildDirectlyFromPhotos} disabled={autoBuilding||generating||blenderBusy}>{autoBuilding?"Analyzing and building in Blender…":"Build 3D from photos →"}</button><span>{photoSlots.length===1?"One-photo mode: prioritize the photographed elevation.":"Multi-photo mode: constrain each supplied elevation."} Geometry remains estimated, not photogrammetric.</span></div>
+ <div className="photo-direct-actions"><button className="dark" onClick={buildDirectlyFromPhotos} disabled={autoBuilding||generating||blenderBusy}>{autoBuilding?"Analyzing and building in Blender…":"Detect facade for 3D →"}</button><span>{photoSlots.length===1?"One-photo mode: prioritize the photographed elevation.":"Multi-photo mode: constrain each supplied elevation."} Geometry remains estimated, not photogrammetric.</span></div>
  <div className="photo-selection-grid">{photoSlots.map((slot,index)=><div className="photo-selection-item" key={index}>
    {photoPreviews[index]&&<img src={photoPreviews[index]} alt={viewNames[slot.view]+" house photograph"}/>}
    <div className="photo-selection-meta"><select aria-label={"Photo "+(index+1)+" viewpoint"} value={slot.view} onChange={e=>changeView(index,e.target.value as HouseView)}>{viewOrder.map(view=><option key={view} value={view} disabled={photoSlots.some((p,i)=>i!==index&&p.view===view)}>{viewNames[view]}</option>)}</select><button onClick={()=>removePhoto(index)} aria-label={"Remove photo "+(index+1)}>Remove</button></div>
@@ -351,6 +359,49 @@ export default function Home(){
  {analysisError&&<p className="analysis-error" role="alert">{analysisError}</p>}
  {analysis&&<div className="generate-layout"><div><strong>Generate a first-pass 3D structure</strong><p>Build editable meshes from estimated facade layout. This is a schematic approximation, not a photogrammetric reconstruction.</p></div><button className="dark" disabled={generating} onClick={generatePhotoModel}>{generating?"Building 3D layout…":"Generate schematic 3D →"}</button></div>}
  {generationError&&<p className="analysis-error" role="alert">{generationError}</p>}
+ {housePlan&&reviewReady&&<section className="facade-review">
+  <div className="facade-review-header"><div><span className="eyebrow">FACADE ALIGNMENT</span><h3>Review the features Gemini detected</h3><p>Check the front entrance, stairs, porch and dormer against the original photo. Adjust any misplaced detection before running Blender. Positions are approximate facade percentages.</p></div><button className="dark" onClick={generateBlenderModel} disabled={blenderBusy}>{blenderBusy?"Building Blender mesh…":"Build reviewed 3D →"}</button></div>
+  <div className="facade-review-layout">
+   <div className="facade-review-photo">
+    {photoPreviews[photoSlots.findIndex(p=>p.view==="front")]&&<div className="facade-photo-frame">
+      <img src={photoPreviews[photoSlots.findIndex(p=>p.view==="front")]} alt="Reference front facade with architectural alignment overlay"/>
+      {housePlan.door&&housePlan.door.width>.02&&<div className="anchor-box anchor-door" style={{left:(housePlan.door.x*100)+"%",bottom:(housePlan.door.y*100)+"%",width:(housePlan.door.width*100)+"%",height:(housePlan.door.height*100)+"%"}}><span>Door</span></div>}
+      {housePlan.porch&&housePlan.porch.width>.05&&<div className="anchor-box anchor-porch" style={{left:(housePlan.porch.x*100)+"%",bottom:"5%",width:(housePlan.porch.width*100)+"%",height:"35%"}}><span>Porch</span></div>}
+      {housePlan.dormer&&housePlan.dormer.width>.05&&<div className="anchor-box anchor-dormer" style={{left:((housePlan.dormer.center_x-housePlan.dormer.width/2)*100)+"%",top:"12%",width:(housePlan.dormer.width*100)+"%",height:"27%"}}><span>Dormer</span></div>}
+      {housePlan.entry_steps?.present&&<div className="anchor-box anchor-steps" style={{left:((housePlan.entry_steps.center_x-housePlan.entry_steps.width/2)*100)+"%",bottom:"0%",width:(housePlan.entry_steps.width*100)+"%",height:"14%"}}><span>Steps</span></div>}
+    </div>}
+    {!photoSlots.some(p=>p.view==="front")&&<p>Add a labeled Front photo to use the facade overlay.</p>}
+    <p>The boxes are approximate guides; the background includes sky and landscaping, so image positions are not calibrated architectural measurements.</p>
+   </div>
+   <div className="facade-review-controls">
+    <strong>Front door</strong>
+    <div className="facade-control-grid">
+     {(["x","y","width","height"] as const).map(field=><label key={field}>{field.toUpperCase()} <input type="number" step=".01" min="0" max="1" value={housePlan.door?.[field]??0} onChange={e=>updateDoor(field,Math.max(0,Math.min(1,Number(e.target.value))))}/></label>)}
+    </div>
+    <strong>Entrance stairs</strong>
+    <label className="facade-checkbox"><input type="checkbox" checked={!!housePlan.entry_steps?.present} onChange={e=>updateSteps("present",e.target.checked)}/> Visible front steps</label>
+    <div className="facade-control-grid">
+      <label>Steps <input type="number" min="0" max="10" step="1" value={housePlan.entry_steps?.count??0} onChange={e=>updateSteps("count",Math.max(0,Math.min(10,Math.round(Number(e.target.value)))))} /></label>
+      <label>Center X <input type="number" min="0" max="1" step=".01" value={housePlan.entry_steps?.center_x??.5} onChange={e=>updateSteps("center_x",Math.max(0,Math.min(1,Number(e.target.value))))}/></label>
+      <label>Width <input type="number" min="0" max="1" step=".01" value={housePlan.entry_steps?.width??.15} onChange={e=>updateSteps("width",Math.max(0,Math.min(1,Number(e.target.value))))}/></label>
+    </div>
+    <strong>Porch and columns</strong>
+    <div className="facade-control-grid">
+      <label>Left X <input type="number" min="0" max="1" step=".01" value={housePlan.porch?.x??0} onChange={e=>updatePorch("x",Math.max(0,Math.min(1,Number(e.target.value))))}/></label>
+      <label>Width <input type="number" min="0" max="1" step=".01" value={housePlan.porch?.width??0} onChange={e=>updatePorch("width",Math.max(0,Math.min(1,Number(e.target.value))))}/></label>
+      <label>Posts <input type="number" min="0" max="8" step="1" value={housePlan.porch_posts.length} onChange={e=>{const n=Math.max(0,Math.min(8,Math.round(Number(e.target.value))));const x=housePlan.porch?.x??.15,w=housePlan.porch?.width??.7;editPlan({...housePlan,porch_posts:Array.from({length:n},(_,i)=>x+w*(i+1)/(n+1))})}}/></label>
+    </div>
+    <label className="facade-checkbox"><input type="checkbox" checked={!!housePlan.porch?.railing} onChange={e=>updatePorch("railing",e.target.checked)}/> Porch railing</label>
+    <strong>Dormer</strong>
+    <div className="facade-control-grid">
+     <label>Position X <input type="number" min="0" max="1" step=".01" value={housePlan.dormer?.center_x??.5} onChange={e=>housePlan.dormer&&editPlan({...housePlan,dormer:{...housePlan.dormer,center_x:Number(e.target.value)}})}/></label>
+     <label>Width <input type="number" min="0" max=".75" step=".01" value={housePlan.dormer?.width??0} onChange={e=>housePlan.dormer&&editPlan({...housePlan,dormer:{...housePlan.dormer,width:Number(e.target.value)}})}/></label>
+     <label>Upper windows <input type="number" min="0" max="4" step="1" value={housePlan.dormer?.window_count??0} onChange={e=>housePlan.dormer&&editPlan({...housePlan,dormer:{...housePlan.dormer,window_count:Math.round(Number(e.target.value))},dormer_windows:[]})}/></label>
+    </div>
+    <p>After adjusting the detection, click <strong>Build reviewed 3D</strong>. No additional Gemini call is needed.</p>
+   </div>
+  </div>
+ </section>}
  {housePlan&&<div className="blender-workflow"><div><strong>Generate the full editable Blender mesh</strong><p>Run the procedural modeling script locally using your Mac's installed Blender. The result loads as a GLB here, with named semantic components. Unlike the quick schematic, this step creates a downloadable Blender-generated model.</p></div><div className="blender-actions"><button className="dark" disabled={blenderBusy} onClick={generateBlenderModel}>{blenderBusy?"Blender is generating…":"Build with Blender →"}</button>{blenderUrl&&<button className="upload" onClick={downloadBlenderModel}>Download GLB ↓</button>}</div></div>}
  {blenderError&&<p className="analysis-error" role="alert">{blenderError}</p>}
  {housePlan&&<div className="geometry-corrections"><div><strong>Fine-tune the house layout</strong><p>These corrections redraw the actual 3D mesh without another AI request. Compare with the original photo above.</p></div><div className="correction-controls"><label className="correction-check"><input type="checkbox" checked={mirrorFacade} onChange={e=>{setMirrorFacade(e.target.checked);setBlenderUrl(null);blenderBlob.current=null;}}/> Flip facade left/right</label><label className="correction-label">Roof shape <select value={roofCorrection} onChange={e=>{setRoofCorrection(e.target.value as "auto"|"front_to_back"|"left_to_right");setBlenderUrl(null);blenderBlob.current=null;}}><option value="auto">AI estimate</option><option value="front_to_back">Front-facing gable ▲</option><option value="left_to_right">Side-facing ridge</option></select></label></div></div>}
