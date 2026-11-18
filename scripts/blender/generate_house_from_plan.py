@@ -214,10 +214,43 @@ def generate(plan):
             (W / 2 + over, -FRONT + over, eave),
             (-W / 2 - over, -FRONT + over, eave)], roof, True)
 
+    # Distinct dormer architecture: a centered raised room/window face on a
+    # left-to-right pitched roof, not a full-width front gable. The dormer
+    # meshes sit above the front roof plane and are selectable separately.
+    dormer = plan.get("dormer") or {}
+    has_dormer = plan.get("roof_feature") == "central_dormer" and float(dormer.get("width",0)) > .08
+    if has_dormer:
+        dc=(float(dormer.get("center_x",.5))-.5)*W
+        dw=max(1.3,min(4.8,float(dormer.get("width",.3))*W))
+        dx0,dx1=dc-dw/2,dc+dw/2
+        # Main roof slopes up toward y=0. The dormer face emerges from its
+        # lower front half; proportions inferred, never measured.
+        dy=FRONT+1.45
+        dormer_base=H+.95
+        dormer_rise=max(.75,min(2.2,float(dormer.get("rise",.4))*H))
+        dormer_top=dormer_base+dormer_rise
+        poly("DORMER__front_wall","siding",
+             [(dx0,dy,dormer_base),(dx1,dy,dormer_base),
+              (dx1,dy,dormer_top-.72),(dc,dy,dormer_top),
+              (dx0,dy,dormer_top-.72)],wall,True)
+        gable("DORMER",dx0,dx1,dormer_top-.72,dormer_top,
+              dy,dy+2.1,wall,roof,trim,True)
+        for j in range(max(0,min(4,int(dormer.get("window_count",2))))):
+            count=max(1,min(4,int(dormer.get("window_count",2))))
+            ww=min(.64,dw/(count+1)*.62)
+            cx=dx0+(j+1)*dw/(count+1)
+            wz=dormer_base+.48
+            box("DORMER__window_casing_%02d"%j,"trim",
+                (cx,dy-.14,wz),(ww+.15,.12,.96),window_frame_color)
+            box("DORMER__window_glass_%02d"%j,"window",
+                (cx,dy-.23,wz),(ww,.08,.80),glass_color,False,True)
+            beam("DORMER__window_mullion_%02d"%j,"trim",
+                (cx,dy-.285,wz-.35),(cx,dy-.285,wz+.35),.035,window_frame_color)
+
     # Two-step farmhouse roofline:
     # dominant front gable is higher and farther back; smaller garage gable
     # projects forward. This ordering preserves visible intersections.
-    front_gables = plan.get("front_gables", [])[:4]
+    front_gables = [] if has_dormer else plan.get("front_gables", [])[:4]
     ordered = sorted(enumerate(front_gables),
                      key=lambda pair: float(pair[1]["width"]), reverse=True)
     dominant_idx = ordered[0][0] if ordered else -1
@@ -337,21 +370,45 @@ def generate(plan):
                 box(prefix+"_mullion","trim",(glassloc[0],glassloc[1]*1.002,z),
                     (.045,.06,height),trim,False)
 
+    porch = plan.get("porch") or {}
+    porch_width=max(0.0,float(porch.get("width",0)))
     posts = plan.get("porch_posts", [])[:8]
-    if posts:
-        xs = [(float(x) - .5) * W for x in posts]
-        pz = min(H * .79, 3.0)
-        depth = FRONT - 1.35
-        for i, x in enumerate(xs):
-            box("PORCH__post_%02d" % i, "trim", (x, depth, pz / 2), (.18, .18, pz), trim)
-            box("PORCH__base_%02d" % i, "trim", (x, depth, .14), (.29, .29, .28), trim)
-        width = max(2.0, max(xs) - min(xs) + 1.15)
-        middle = (max(xs) + min(xs)) / 2
-        # A light porch header, rather than a chunky floating flat roof.
-        box("PORCH__header", "trim", (middle, depth, pz),
-            (width, .18, .13), trim)
-        box("PORCH__soffit", "trim", (middle, FRONT - .93, pz + .10),
-            (width + .14, 1.17, .08), trim, True)
+    if porch_width>.10 or posts:
+        # Reconstruct the observed front porch span, not merely a tiny
+        # awning between whichever two posts Gemini happened to count.
+        if porch_width>.10:
+            left=(float(porch.get("x",0))-.5)*W
+            width=max(2.0,min(W,porch_width*W))
+            right=left+width
+            xs=[left+.18,right-.18]
+        else:
+            xs=[(float(x)-.5)*W for x in posts]
+            left=min(xs)-.55
+            right=max(xs)+.55
+            width=max(2.0,right-left)
+        middle=(left+right)*.5
+        pz=min(H*.8,3.12)
+        depth=FRONT-max(.9,min(2.0,float(porch.get("depth",.14))*W))
+        for i,x in enumerate(xs):
+            box("PORCH__post_%02d"%i,"trim",(x,depth,pz/2),(.18,.18,pz),trim)
+            box("PORCH__base_%02d"%i,"trim",(x,depth,.16),(.29,.29,.32),trim)
+        box("PORCH__front_header","trim",(middle,depth,pz),(width,.16,.17),trim)
+        box("PORCH__soffit","trim",(middle,(depth+FRONT)/2,pz+.10),
+            (width,abs(depth-FRONT)+.08,.10),trim,True)
+        box("PORCH__floor","trim",(middle,(depth+FRONT)/2,.055),
+            (width,abs(depth-FRONT),.10),"#b7b3a9",True)
+        if bool(porch.get("railing",False)):
+            # Simple real railing geometry; avoid blocking the entrance area.
+            rx0=max(middle,left)
+            rx1=right
+            if rx1-rx0>.6:
+                rail_h=1.06
+                box("PORCH__handrail","trim",((rx0+rx1)/2,depth,rail_h),
+                    (rx1-rx0,.09,.09),trim)
+                for j in range(max(2,int((rx1-rx0)/.22))):
+                    x=rx0+(j+.5)*(rx1-rx0)/max(2,int((rx1-rx0)/.22))
+                    box("PORCH__baluster_%02d"%j,"trim",(x,depth,.62),
+                        (.055,.065,.88),trim)
 
     box("SITE__lawn", "landscape", (0, 0, -.16), (22, 20, .22), "#73845a", True)
     box("SITE__driveway", "driveway",
