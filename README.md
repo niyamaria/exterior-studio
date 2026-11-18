@@ -204,3 +204,9 @@ The main workflow is **Upload → Create my 3D home → Check the image alignmen
 Optional technical actions (the standalone AI photo analysis and schematic generator, native GLB import, Blender build settings, and layout corrections) are grouped behind expandable controls, and detailed facade coordinate inputs are hidden until **Fine-tune the details** is expanded. This keeps advanced capabilities accessible without crowding the primary journey. All graphics are inline SVG/CSS, requiring no extra frontend dependency or external image asset.
 
 To run locally, `git pull` and `npm run dev`. This is a visual change; the end-to-end rendering and mobile layout still need browser validation.
+
+## Intersecting front gables: modern farmhouse layout
+
+The photo planner now explicitly distinguishes houses with two overlapping **front-facing gables** from a cottage with a central roof dormer. For a real one-story home showing a smaller projecting garage wing and a larger entrance gable, Gemini should return distinct `front_gables` and a real `garage_door`, rather than `central_dormer`. When both a garage and two front gables are detected, the backend corrects inconsistent dormer and ridge classifications.
+
+The Blender script builds a separate projecting garage front/side mesh, its own smaller gable roof, a taller main gable and a recessive connector roof. Garage doors are aligned with the projected garage wall. Fine-tune the centers, widths, and peak ratios from the expandable Facade Alignment controls if Gemini misplaces the rooflines. The example `examples/overlapping-front-gables-test.json` is a manually estimated regression fixture based on an uploaded farmhouse photo; it is not photogrammetric or measured geometry. Regenerate the 3D house after changing gable controls. The render still needs live Blender/browser validation.
