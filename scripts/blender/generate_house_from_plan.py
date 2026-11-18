@@ -152,6 +152,12 @@ def shutters(name, cx, front, bottom, width, height, color="#30363a"):
 
 
 def generate(plan):
+    # A front garage gable plus taller main front gable is NOT a dormer.
+    garage_openings=[o for o in plan.get("openings",[]) if o.get("kind")=="garage_door"]
+    cross_gable=len(plan.get("front_gables",[]))>=2 and bool(garage_openings)
+    if cross_gable:
+        plan={**plan,"roof_feature":"front_gable","roof_ridge_direction":"front_to_back",
+              "upper_level":{"type":"none","width":0,"height":0,"inset":0,"windows":0}}
     # A raised dormer is not necessarily a full second story.
     upper = plan.get("upper_level") or {}
     upper_type = upper.get("type") or ("dormer" if plan.get("roof_feature") == "central_dormer" else "none")
@@ -228,8 +234,12 @@ def generate(plan):
         # Keep a low back roof mass when Gemini detected multiple visible gables.
         # Otherwise the generic full-width triangle hides the actual two-gable silhouette.
         if plan.get("front_gables"):
-            gable("REAR_ROOF_ESTIMATED", -W / 2, W / 2, H,
-                  H + .85, FRONT + 1.2, -FRONT, wall, roof, trim, True)
+            if cross_gable:
+                box("ROOF__cross_gable_rear_connector","roof",
+                    (0,1.2,H+.16),(W+.25,D-2.2,.24),roof,True)
+            else:
+                gable("REAR_ROOF_ESTIMATED", -W / 2, W / 2, H,
+                      H + .85, FRONT + 1.2, -FRONT, wall, roof, trim, True)
         else:
             gable("MAIN", -W / 2, W / 2, H, ridge, FRONT, -FRONT, wall, roof, trim)
     else:
@@ -323,17 +333,26 @@ def generate(plan):
     front_gables = [] if has_dormer else plan.get("front_gables", [])[:4]
     ordered = sorted(enumerate(front_gables),
                      key=lambda pair: float(pair[1]["width"]), reverse=True)
-    dominant_idx = ordered[0][0] if ordered else -1
+    dominant_idx = max(ordered,key=lambda p:float(p[1]["height_ratio"])*float(p[1]["width"]))[0] if ordered else -1
+    secondary_garage_span=None
     dominant_span = None
     for i, g in ordered:
         cx = (float(g["center_x"]) - .5) * W
         gw = max(1.5, min(11.5, float(g["width"]) * W))
         is_dominant = i == dominant_idx
         ratio = max(.12, min(.8, float(g["height_ratio"])))
-        gr = H + max(1.30 if is_dominant else .80,
-                     min(3.45 if is_dominant else 2.15, ratio * H))
-        nose = FRONT - (.22 if is_dominant else 1.12)
+        gr = H + max(1.75 if is_dominant else 1.05,
+                     min(3.7 if is_dominant else 2.35, ratio * H))
+        nose = FRONT - (.28 if is_dominant else 1.35)
         tail = -FRONT if is_dominant else FRONT + 1.55
+        if cross_gable and not is_dominant:
+            secondary_garage_span=(cx-gw/2,cx+gw/2,nose)
+            box("GARAGE_WING__front","siding",
+                (cx,nose,H/2),(gw,.22,H),wall,True)
+            box("GARAGE_WING__left_side","siding",
+                (cx-gw/2,(nose+FRONT)/2,H/2),(.18,FRONT-nose,H),wall,True)
+            box("GARAGE_WING__right_side","siding",
+                (cx+gw/2,(nose+FRONT)/2,H/2),(.18,FRONT-nose,H),wall,True)
         gable("PRIMARY_%02d" % i if is_dominant else "SECONDARY_%02d" % i,
               cx - gw / 2, cx + gw / 2,
               H + .06, gr, nose, tail, wall, roof, trim, True)
@@ -379,6 +398,11 @@ def generate(plan):
         # Image y often includes sky and landscaping. Enforce a ground-floor
         # door with its bottom at the finished porch elevation, not floating
         # halfway up the wall or appearing as a small square window.
+        if kind=="garage_door" and secondary_garage_span is not None and (
+                secondary_garage_span[0]-.30 <= x <= secondary_garage_span[1]+.30):
+            front=secondary_garage_span[2]-.24
+            h=max(2.15,min(2.65,h))
+            z=h/2+.06
         if kind == "entry_door":
             h=max(2.10,min(2.55,h))
             w=max(.88,min(1.35,w))
@@ -489,6 +513,8 @@ def generate(plan):
     porch = plan.get("porch") or {}
     porch_width=max(0.0,float(porch.get("width",0)))
     posts = plan.get("porch_posts", [])[:8]
+    if cross_gable and not porch.get("railing") and not posts:
+        porch_width=0
     if is_cottage:
         # Typical front-porch cottage: roof overhang spans the front facade,
         # while the railing/porch deck may occupy only its right half.
