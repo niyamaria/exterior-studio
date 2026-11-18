@@ -15,6 +15,12 @@ const schema = {
   roof_type: {type:"STRING", enum:["gable","hip","shed","flat"]},
   roof_color: {type:"STRING"},
   siding_color: {type:"STRING"},
+  trim_color:{type:"STRING"},
+  garage_color:{type:"STRING"},
+  front_door_color:{type:"STRING"},
+  shutter_color:{type:"STRING"},
+  window_frame_color:{type:"STRING"},
+  window_glass_color:{type:"STRING"},
   roof_ridge_direction: {type:"STRING",enum:["front_to_back","left_to_right"]},
   roof_pitch: {type:"STRING",enum:["low","medium","steep"]},
   openings: {type:"ARRAY",items:{type:"OBJECT",properties:{
@@ -28,7 +34,7 @@ const schema = {
   front_gables:{type:"ARRAY",items:{type:"OBJECT",properties:{center_x:{type:"NUMBER"},width:{type:"NUMBER"},height_ratio:{type:"NUMBER"}},required:["center_x","width","height_ratio"]}},
   side_openings:{type:"ARRAY",items:{type:"OBJECT",properties:{view:{type:"STRING",enum:["left","right","rear"]},kind:{type:"STRING",enum:["window","entry_door","garage_door"]},x:{type:"NUMBER"},y:{type:"NUMBER"},width:{type:"NUMBER"},height:{type:"NUMBER"}},required:["view","kind","x","y","width","height"]}}
  },
- required:["stories","roof_type","roof_color","siding_color","roof_ridge_direction","roof_pitch","openings","porch_posts","architectural_notes","garage_side","siding_style","front_gables","side_openings"]
+ required:["stories","roof_type","roof_color","siding_color","trim_color","garage_color","front_door_color","shutter_color","window_frame_color","window_glass_color","roof_ridge_direction","roof_pitch","openings","porch_posts","architectural_notes","garage_side","siding_style","front_gables","side_openings"]
 } as const;
 
 export async function POST(request:NextRequest) {
@@ -47,7 +53,7 @@ export async function POST(request:NextRequest) {
     headers:{"Content-Type":"application/json","x-goog-api-key":key},
     body:JSON.stringify({
       contents:[{role:"user",parts:[
-       {text:"Create a precise normalized architectural SCHEMATIC for a procedural Blender model from the provided labeled photos of ONE REAL HOUSE. Focus on preserving the front-facing silhouette. If only one photo is supplied, describe ONLY the visible facade accurately: garage position, entrance, window count and bounding boxes, individual front gables, roof pitch, story count, color and siding type. Do NOT add invented front windows or replace arches with other styles. For each front opening identify shape as arched or rectangular, and whether shutters are clearly visible. These fields control the actual mesh geometry. Use normalized facade coordinates: x=left edge, y=bottom edge (ground=0), width and height fractions 0..1. For additional LEFT/RIGHT/REAR photos, extract openings on those elevations into side_openings with corresponding view label. Each opening coordinate is relative to its OWN photographed elevation (x left-to-right from that viewpoint). Never place features on views that were not provided; use an empty list for unseen elevations. The FRONT photo's features must take priority and should never be averaged with side facades. Include separate front_gables (center_x,width,height_ratio); keep the larger main gable and smaller garage gable distinct. Report roof orientation, siding_style, garage_side, porch_posts based on visual evidence only. If FRONT image absent, openings should be [] unless you can confidently establish the front. No dimension is measured; depths and hidden walls must be treated as estimates. Maximum 18 front openings, 20 additional openings, 8 posts and 4 gables. Return JSON conforming to schema."},
+       {text:"Create a precise normalized architectural SCHEMATIC for a procedural Blender model from the provided labeled photos of ONE REAL HOUSE. Focus on preserving the front-facing silhouette. If only one photo is supplied, describe ONLY the visible facade accurately: garage position, entrance, window count and bounding boxes, individual front gables, roof pitch, story count, color and siding type. Do NOT add invented front windows or replace arches with other styles. For each front opening identify shape as arched or rectangular, and whether shutters are clearly visible. These fields control the actual mesh geometry. Use normalized facade coordinates: x=left edge, y=bottom edge (ground=0), width and height fractions 0..1. For additional LEFT/RIGHT/REAR photos, extract openings on those elevations into side_openings with corresponding view label. Each opening coordinate is relative to its OWN photographed elevation (x left-to-right from that viewpoint). Never place features on views that were not provided; use an empty list for unseen elevations. The FRONT photo's features must take priority and should never be averaged with side facades. Include separate front_gables (center_x,width,height_ratio); keep the larger main gable and smaller garage gable distinct. Determine realistic architectural material colors DIRECTLY FROM PIXELS in the photo, not from names or common defaults. Give six-digit HEX values for siding_color (actual main wall cladding, not sky or sunlit trim), roof_color (shingle surface), trim_color (fascia, window surrounds, and porch), garage_color, front_door_color, shutter_color, window_frame_color, and window_glass_color (use black/dark reflective blue unless a visible recolored pane is unmistakable). Account for shadows and exposure; estimate the base material color. Do not use generic beige walls when the image is blue-gray, charcoal, green or another distinctive finish. Report roof orientation, siding_style, garage_side, porch_posts based on visual evidence only. If FRONT image absent, openings should be [] unless you can confidently establish the front. No dimension is measured; depths and hidden walls must be treated as estimates. Maximum 18 front openings, 20 additional openings, 8 posts and 4 gables. Return JSON conforming to schema."},
        ...photoParts(photos)
       ]}],
       generationConfig:{responseMimeType:"application/json",responseSchema:schema,temperature:0.1,maxOutputTokens:1400}
@@ -82,6 +88,12 @@ export async function POST(request:NextRequest) {
     front_gables:(plan.front_gables||[]).slice(0,4).map(g=>({center_x:clamp(g.center_x,.05,.95),width:clamp(g.width,.12,.95),height_ratio:clamp(g.height_ratio,.12,.8)})),
     siding_color:/^#[0-9a-fA-F]{6}$/.test(plan.siding_color)?plan.siding_color:"#e2ddd2",
     roof_color:/^#[0-9a-fA-F]{6}$/.test(plan.roof_color)?plan.roof_color:"#414850",
+    trim_color:/^#[0-9a-fA-F]{6}$/.test(plan.trim_color||"")?plan.trim_color:"#f0eee5",
+    garage_color:/^#[0-9a-fA-F]{6}$/.test(plan.garage_color||"")?plan.garage_color:"#ebe9e3",
+    front_door_color:/^#[0-9a-fA-F]{6}$/.test(plan.front_door_color||"")?plan.front_door_color:"#64574a",
+    shutter_color:/^#[0-9a-fA-F]{6}$/.test(plan.shutter_color||"")?plan.shutter_color:"#32383b",
+    window_frame_color:/^#[0-9a-fA-F]{6}$/.test(plan.window_frame_color||"")?plan.window_frame_color:"#eee9df",
+    window_glass_color:/^#[0-9a-fA-F]{6}$/.test(plan.window_glass_color||"")?plan.window_glass_color:"#354c58",
     architectural_notes:plan.architectural_notes.slice(0,500)
   },model});
  }catch(e){
