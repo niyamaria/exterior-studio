@@ -155,6 +155,15 @@ def generate(plan):
     # A raised dormer is not necessarily a full second story.
     is_cottage = plan.get("roof_feature") == "central_dormer"
     H = 6.4 if int(plan["stories"]) == 2 and not is_cottage else 3.4 if is_cottage else 4.0
+    foundation_plan=plan.get("foundation") or {}
+    steps_plan=plan.get("entry_steps") or {}
+    # Keep the facade's finished floor at world z=0. Lower the surrounding
+    # yard/sidewalk to physically create the observed raised entry condition.
+    foundation_height=max(0.0,min(1.7,float(foundation_plan.get("height",0)))) if foundation_plan.get("raised") else 0.0
+    # If Gemini sees multiple risers but neglects the raised floor, infer a
+    # plausible elevation so stairs still connect two genuine levels.
+    if foundation_height<.15 and steps_plan.get("present") and int(steps_plan.get("count",0))>=2:
+        foundation_height=min(1.35,.18*int(steps_plan["count"]))
     wall = plan.get("siding_color", "#ebe9e3")
     roof = plan.get("roof_color", "#4c5358")
     # Do not make white roofing the same color as siding, which obscures form.
@@ -167,6 +176,20 @@ def generate(plan):
     window_frame_color = plan.get("window_frame_color") or trim
     glass_color = plan.get("window_glass_color") or "#344b5a"
 
+    if foundation_height>.12:
+        # Opaque foundation walls are real separate selectable meshes.
+        box("FOUNDATION__front", "foundation",
+            (0,FRONT, -foundation_height/2),(W+.08,.3,foundation_height),
+            "#c1bcb2")
+        box("FOUNDATION__left", "foundation",
+            (-W/2,0,-foundation_height/2),(.28,D,foundation_height),
+            "#bbb8ad",True)
+        box("FOUNDATION__right", "foundation",
+            (W/2,0,-foundation_height/2),(.28,D,foundation_height),
+            "#bbb8ad",True)
+        box("FOUNDATION__rear", "foundation",
+            (0,-FRONT,-foundation_height/2),(W,.28,foundation_height),
+            "#b8b6ad",True)
     box("FRONT__wall_observed", "siding", (0, FRONT, H / 2), (W, .24, H), wall)
     box("REAR__wall_estimated", "siding", (0, -FRONT, H / 2), (W, .24, H), wall, True)
     box("SIDE__left_estimated", "siding", (-W / 2, 0, H / 2), (.24, D, H), wall, True)
@@ -367,17 +390,25 @@ def generate(plan):
         n=max(1,min(10,int(steps["count"])))
         cx=(float(steps.get("center_x",.5))-.5)*W
         sw=max(.75,min(4.0,float(steps.get("width",.15))*W))
-        # Procedural risers sized for visualization, not measured construction.
-        riser=.16
-        tread=.36
+        # Bottom step meets the lawn at z=-foundation_height and the top
+        # step meets the porch floor at z=0. Each tread rises toward the door.
+        floor_gap=max(.18,foundation_height)
+        riser=floor_gap/n
+        tread=.38
+        porch_data=plan.get("porch") or {}
+        porch_depth=FRONT-max(.9,min(2.0,float(porch_data.get("depth",.14))*W))
         for i in range(n):
-            # Top step sits nearest porch; lower steps extend toward viewer.
             level=n-i
+            upper_z=-floor_gap+level*riser
+            base_z=-floor_gap
+            # First loop element is the tall tread nearest the porch.
+            y=porch_depth-(i+.5)*tread
             box("STEPS__tread_%02d"%i,"steps",
-                (cx,FRONT-1.95-i*tread,level*riser/2),
-                (sw+.15, tread, level*riser),"#aaa79f",True)
+                (cx,y,(upper_z+base_z)/2),
+                (sw+.15,tread+.015,upper_z-base_z),"#aba69c",True)
         box("STEPS__entry_landing","steps",
-            (cx,FRONT-1.48,n*riser-.05),(sw+.4,.72,.10),"#b7b3a9",True)
+            (cx,(porch_depth+FRONT)/2,.045),
+            (sw+.35,max(.50,abs(FRONT-porch_depth)),.09),"#c5bdb2",True)
 
     # SIDE/REAR: place ONLY openings actually observed in uploaded photos.
     # All elevations remain dimensionally estimated. Coordinates are local
@@ -475,9 +506,9 @@ def generate(plan):
                     box("PORCH__baluster_%02d"%j,"trim",(x,depth,.62),
                         (.055,.065,.88),trim)
 
-    box("SITE__lawn", "landscape", (0, 0, -.16), (22, 20, .22), "#73845a", True)
+    box("SITE__lawn", "landscape", (0, 0, -foundation_height-.16), (22, 20, .22), "#73845a", True)
     box("SITE__driveway", "driveway",
-        (-W * .26 if plan.get("garage_side") == "left" else W * .26, FRONT - 6, -.025),
+        (-W * .26 if plan.get("garage_side") == "left" else W * .26, FRONT - 6, -foundation_height-.025),
         (3.6, 10.6, .045), "#b8b9b4", True)
 
     # Organize and preserve semantic metadata in GLB extras.
