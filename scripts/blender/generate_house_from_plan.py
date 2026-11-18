@@ -225,7 +225,7 @@ def generate(plan):
     has_dormer = plan.get("roof_feature") == "central_dormer" and float(dormer.get("width",0)) > .08
     if has_dormer:
         dc=(float(dormer.get("center_x",.5))-.5)*W
-        dw=max(1.3,min(4.8,float(dormer.get("width",.3))*W))
+        dw=max(3.15 if is_cottage else 1.3,min(4.8,float(dormer.get("width",.3))*W))
         dx0,dx1=dc-dw/2,dc+dw/2
         # Main roof slopes up toward y=0. The dormer face emerges from its
         # lower front half; proportions inferred, never measured.
