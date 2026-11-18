@@ -6,6 +6,10 @@ import {buildPhotoHouse} from "../lib/build-house";
 import type {HousePlan} from "../lib/house-plan";
 
 type Part="siding"|"roof"|"trim"|"garage"|"shutter"|"gutter";
+type HouseView="front"|"left"|"right"|"rear";
+type PhotoSlot={file:File;view:HouseView};
+const viewNames:Record<HouseView,string>={front:"Front",left:"Left side",right:"Right side",rear:"Rear"};
+const viewOrder:HouseView[]=["front","left","right","rear"];
 type Observation={component:string;count:number;notes:string;confidence:"high"|"medium"|"low"};
 type Analysis={building_summary:string;photo_view:string;visible_components:Observation[];missing_views:string[];reconstruction_notes:string[]};
 const palette:Record<Part,string[]>={siding:["#d9d3c4","#a4b1a6","#5c7381","#b58f77"],roof:["#383d43","#6a6461","#87715b"],trim:["#f3efe4","#ced1c9","#373e43"],garage:["#4c5256","#f2ece0","#9c9588"],shutter:["#262d32","#555a5a","#f2efe5"],gutter:["#786550","#414444","#c4b9a8"]};
@@ -37,6 +41,47 @@ export default function Home(){
  const [applied,setApplied]=useState<Record<Part,string>>(defaults);const [busy,setBusy]=useState(false);
  const [photoName,setPhotoName]=useState("");const [hover,setHover]=useState("");
  const [photoFile,setPhotoFile]=useState<File|null>(null);
+ const [photoSlots,setPhotoSlots]=useState<PhotoSlot[]>([]);
+ const [photoPreviews,setPhotoPreviews]=useState<string[]>([]);
+ const [photoInputError,setPhotoInputError]=useState("");
+ useEffect(()=>{
+   const urls=photoSlots.map(p=>URL.createObjectURL(p.file));
+   setPhotoPreviews(urls);
+   return()=>urls.forEach(url=>URL.revokeObjectURL(url));
+ },[photoSlots]);
+ function resetGenerated(){
+   setManualModel(false);setAnalysis(null);setAnalysisError("");
+   setHousePlan(null);setMirrorFacade(false);setRoofCorrection("auto");
+   setBlenderUrl(null);blenderBlob.current=null;setGenerationError("");
+ }
+ function choosePhotos(incoming:FileList|null){
+   if(!incoming)return;
+   const added=Array.from(incoming);
+   const used=new Set(photoSlots.map(p=>p.view));
+   const available=viewOrder.filter(v=>!used.has(v));
+   if(added.length>available.length){setPhotoInputError("You can use up to four photos, one per viewpoint.");return;}
+   if(added.some(file=>!["image/png","image/jpeg","image/webp"].includes(file.type)||file.size>8*1024*1024)){
+     setPhotoInputError("Photos must be JPEG, PNG or WebP, each under 8 MB.");return;
+   }
+   const merged=[...photoSlots,...added.map((file,i)=>({file,view:available[i]}))];
+   if(merged.reduce((sum,p)=>sum+p.file.size,0)>24*1024*1024){setPhotoInputError("Combined photos must be under 24 MB.");return;}
+   setPhotoSlots(merged);
+   setPhotoFile(merged[0]?.file||null);setPhotoName(merged.map(p=>p.file.name).join(", "));
+   setPhotoInputError("");resetGenerated();
+ }
+ function changeView(index:number,view:HouseView){
+   if(photoSlots.some((p,i)=>i!==index&&p.view===view)){setPhotoInputError("That viewpoint is already assigned to another photo.");return;}
+   setPhotoSlots(prev=>prev.map((p,i)=>i===index?{...p,view}:p));
+   setPhotoInputError("");resetGenerated();
+ }
+ function removePhoto(index:number){
+   const remaining=photoSlots.filter((_,i)=>i!==index);
+   setPhotoSlots(remaining);setPhotoFile(remaining[0]?.file||null);
+   setPhotoName(remaining.map(p=>p.file.name).join(", "));setPhotoInputError("");resetGenerated();
+ }
+ function attachPhotos(form:FormData){
+   for(const slot of photoSlots){form.append("photos",slot.file);form.append("views",slot.view);}
+ }
  const [analysis,setAnalysis]=useState<Analysis|null>(null);
  const [analyzing,setAnalyzing]=useState(false);
  const [analysisError,setAnalysisError]=useState("");
@@ -204,10 +249,10 @@ export default function Home(){
   const a=document.createElement("a");a.href=blenderUrl;a.download="exterior-studio-semantic-house.glb";a.click();
  }
  async function generatePhotoModel(){
-  if(!photoFile)return;
+  if(!photoSlots.length)return;
   setGenerating(true);setGenerationError("");
   try{
-   const form=new FormData();form.append("photo",photoFile);
+   const form=new FormData();attachPhotos(form);
    const response=await fetch("/api/scene-plan",{method:"POST",body:form});
    const data=await response.json();
    if(!response.ok)throw new Error(data.error||"Couldn't generate schematic layout.");
@@ -218,10 +263,10 @@ export default function Home(){
   finally{setGenerating(false)}
  }
  async function analyzePhoto(){
-  if(!photoFile)return;
+  if(!photoSlots.length)return;
   setAnalyzing(true);setAnalysisError("");setAnalysis(null);
   try{
-    const body=new FormData();body.append("photo",photoFile);
+    const body=new FormData();attachPhotos(body);
     const result=await fetch("/api/analyze",{method:"POST",body});
     const json=await result.json();
     if(!result.ok)throw new Error(json.error||"Image analysis failed.");
@@ -233,11 +278,21 @@ export default function Home(){
  function downloadView(name:string,pose:readonly number[]){const x=sceneRef.current;if(!x)return;const old=x.camera.position.clone(),q=x.camera.quaternion.clone();const w=x.renderer.domElement.width,h=x.renderer.domElement.height;x.camera.position.set(pose[0],pose[2],pose[1]);x.camera.lookAt(0,3,0);x.renderer.render(x.scene,x.camera);const a=document.createElement("a");a.href=x.renderer.domElement.toDataURL("image/png");a.download=`exterior-studio-${name}.png`;a.click();x.camera.position.copy(old);x.camera.quaternion.copy(q);x.renderer.render(x.scene,x.camera)}
  function exportAll(){setBusy(true);views.forEach(([name,pose],i)=>setTimeout(()=>{downloadView(name,pose);if(i===3)setBusy(false)},i*380))}
  return <main className="app"><header><div className="brand"><span className="brandmark">◈</span><div><strong>EXTERIOR STUDIO</strong><small>Architectural design workspace</small></div></div><nav><span className="active">01 &nbsp; Design</span><span>02 &nbsp; Review</span><span>03 &nbsp; Export</span></nav><span className="pill">Prototype</span></header>
- <div className="heading"><div><span className="eyebrow">YOUR HOME, REIMAGINED</span><h1>Make every detail yours.</h1><p>Explore exterior finishes and stage your changes, then apply your design in one step.</p></div><label className="upload">+ Add reference photo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>{const file=e.target.files?.[0]||null;setManualModel(false);setPhotoFile(file);setPhotoName(file?.name||"");setAnalysis(null);setAnalysisError("");setHousePlan(null);setMirrorFacade(false);setRoofCorrection("auto");setBlenderUrl(null);blenderBlob.current=null;setGenerationError("");}}/></label></div>
+ <div className="heading"><div><span className="eyebrow">YOUR HOME, REIMAGINED</span><h1>Make every detail yours.</h1><p>Explore exterior finishes and stage your changes, then apply your design in one step.</p></div><label className="upload">+ Add house photos ({photoSlots.length}/4)<input type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={photoSlots.length>=4} onChange={e=>{choosePhotos(e.target.files);e.target.value="";}}/></label></div>
  <div className="reference-model-row"><div><strong>Already have a detailed Blender house?</strong><span> Import an existing editable GLB with semantic object names instead of generating another generic schematic.</span></div><label className="upload">Import detailed GLB<input type="file" accept=".glb,model/gltf-binary" onChange={e=>importDetailedGlb(e.target.files?.[0]||null)}/></label></div>
- {photoName&&<section className="analysis-panel">
- <div className="analysis-intro"><div><span className="eyebrow">AI IMAGE ANALYSIS</span><h2>Understand your reference photo</h2><p><strong>{photoName}</strong> · Vision analysis finds architectural elements; it does not yet generate pixel masks or reconstruct the house.</p></div><button className="dark" disabled={analyzing} onClick={analyzePhoto}>{analyzing?"Analyzing photograph…":"Analyze house photo →"}</button></div>
- {referenceUrl&&<div className="reference-preview"><img src={referenceUrl} alt="Uploaded reference house" /><p>Actual uploaded photo • Reference for schematic geometry</p></div>}
+ {photoInputError&&<div className="analysis-error photo-upload-error" role="alert">{photoInputError}</div>}
+ {photoSlots.length>0&&<section className="photo-selection" aria-label="House photo viewpoints">
+ <div className="photo-selection-heading"><div><strong>Your house reference photos</strong><p>{photoSlots.length===1?"Quick mode · Match the visible facade first; unphotographed elevations remain estimated.":"Multi-view mode · Gemini can cross-reference these elevations. Depth and hidden geometry are still estimates."}</p></div><span className="photo-count">{photoSlots.length} / 4 views</span></div>
+ <div className="photo-selection-grid">{photoSlots.map((slot,index)=><div className="photo-selection-item" key={index}>
+   {photoPreviews[index]&&<img src={photoPreviews[index]} alt={viewNames[slot.view]+" house photograph"}/>}
+   <div className="photo-selection-meta"><select aria-label={"Photo "+(index+1)+" viewpoint"} value={slot.view} onChange={e=>changeView(index,e.target.value as HouseView)}>{viewOrder.map(view=><option key={view} value={view} disabled={photoSlots.some((p,i)=>i!==index&&p.view===view)}>{viewNames[view]}</option>)}</select><button onClick={()=>removePhoto(index)} aria-label={"Remove photo "+(index+1)}>Remove</button></div>
+   <span title={slot.file.name}>{slot.file.name}</span>
+ </div>)}</div>
+ <p className="photo-accuracy-note">{photoSlots.length===1?"One photograph can provide a stronger match of that side, but cannot reveal the actual unseen sides or back.":"Additional viewpoints constrain more of the house. For best results, upload front, left, right, and rear views of the same property."}</p>
+ </section>}
+ {photoSlots.length>0&&<section className="analysis-panel">
+ <div className="analysis-intro"><div><span className="eyebrow">AI IMAGE ANALYSIS</span><h2>Understand your reference photo</h2><p><strong>{photoSlots.length} labeled photo{photoSlots.length===1?"":"s"}</strong> · Gemini compares visible architectural features and supports single-photo or multiple-view layout planning.</p></div><button className="dark" disabled={analyzing} onClick={analyzePhoto}>{analyzing?"Analyzing photograph…":"Analyze house photo →"}</button></div>
+ 
  {analysisError&&<p className="analysis-error" role="alert">{analysisError}</p>}
  {analysis&&<div className="generate-layout"><div><strong>Generate a first-pass 3D structure</strong><p>Build editable meshes from estimated facade layout. This is a schematic approximation, not a photogrammetric reconstruction.</p></div><button className="dark" disabled={generating} onClick={generatePhotoModel}>{generating?"Building 3D layout…":"Generate schematic 3D →"}</button></div>}
  {generationError&&<p className="analysis-error" role="alert">{generationError}</p>}
