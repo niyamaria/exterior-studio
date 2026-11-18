@@ -376,6 +376,7 @@ export default function Home(){
  {photoSlots.length>0&&<section className="photo-selection" aria-label="House photo viewpoints">
  <div className="photo-selection-heading"><div><span className="eyebrow">01 / YOUR SPACE</span><h2>Meet your canvas.</h2><p>{photoSlots.length===1?"One photo is all you need to begin.":"More angles help capture the details."}</p></div><span className="photo-count">{photoSlots.length} of 4</span></div>
  <div className="photo-direct-actions"><button className="dark" onClick={buildDirectlyFromPhotos} disabled={autoBuilding||generating||blenderBusy}>{autoBuilding?"Reading your home…":"Create my 3D home ↗"}</button><span>We’ll map your home before you style it.</span></div>
+ {generationError&&<p className="analysis-error" role="alert">{generationError}</p>}
  <div className="photo-selection-grid">{photoSlots.map((slot,index)=><div className="photo-selection-item" key={index}>
    {photoPreviews[index]&&<img src={photoPreviews[index]} alt={viewNames[slot.view]+" house photograph"}/>}
    <div className="photo-selection-meta"><select aria-label={"Photo "+(index+1)+" viewpoint"} value={slot.view} onChange={e=>changeView(index,e.target.value as HouseView)}>{viewOrder.map(view=><option key={view} value={view} disabled={photoSlots.some((p,i)=>i!==index&&p.view===view)}>{viewNames[view]}</option>)}</select><button onClick={()=>removePhoto(index)} aria-label={"Remove photo "+(index+1)}>Remove</button></div>
@@ -393,6 +394,7 @@ export default function Home(){
  </details>
  {housePlan&&reviewReady&&<section className="facade-review">
   <div className="facade-review-header"><div><span className="eyebrow">02 / MAKE IT FIT</span><h3>A little fine-tuning.</h3><p>Check the highlights. Adjust anything that looks off.</p></div><button className="dark" onClick={generateBlenderModel} disabled={blenderBusy}>{blenderBusy?"Making your model…":"See my 3D home ↗"}</button></div>
+  {blenderError&&<p className="analysis-error" role="alert">{blenderError}</p>}
   <div className="facade-review-layout">
    <div className="facade-review-photo">
     {photoPreviews[photoSlots.findIndex(p=>p.view==="front")]&&<div className="facade-photo-frame">
