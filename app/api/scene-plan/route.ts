@@ -76,6 +76,11 @@ export async function POST(request:NextRequest) {
   return NextResponse.json({plan:{
     ...plan,stories:clamp(Math.round(plan.stories),1,2),
     openings,porch_posts:plan.porch_posts.slice(0,8).map(v=>clamp(v,0,1)),
+    observed_views:photos.map(p=>p.view),
+    side_openings:(plan.side_openings||[]).filter(o=>photos.some(p=>p.view===o.view)).slice(0,20).map(o=>{
+      const x=clamp(o.x,0,.95),y=clamp(o.y,0,.95);
+      return {...o,x,y,width:clamp(o.width,.035,Math.max(.035,1-x)),height:clamp(o.height,.04,Math.max(.04,1-y))};
+    }),
     front_gables:(plan.front_gables||[]).slice(0,4).map(g=>({center_x:clamp(g.center_x,.05,.95),width:clamp(g.width,.12,.95),height_ratio:clamp(g.height_ratio,.12,.8)})),
     siding_color:/^#[0-9a-fA-F]{6}$/.test(plan.siding_color)?plan.siding_color:"#e2ddd2",
     roof_color:/^#[0-9a-fA-F]{6}$/.test(plan.roof_color)?plan.roof_color:"#414850",
