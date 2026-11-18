@@ -162,7 +162,7 @@ def generate(plan):
     foundation_height=max(0.0,min(1.7,float(foundation_plan.get("height",0)))) if foundation_plan.get("raised") else 0.0
     # If Gemini sees multiple risers but neglects the raised floor, infer a
     # plausible elevation so stairs still connect two genuine levels.
-    if foundation_height<.15 and steps_plan.get("present") and int(steps_plan.get("count",0))>=2:
+    if "foundation" not in plan and foundation_height<.15 and steps_plan.get("present") and int(steps_plan.get("count",0))>=2:
         foundation_height=min(1.35,.18*int(steps_plan["count"]))
     wall = plan.get("siding_color", "#ebe9e3")
     roof = plan.get("roof_color", "#4c5358")
