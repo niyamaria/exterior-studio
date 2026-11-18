@@ -3,6 +3,12 @@ export type HousePlan = {
   roof_type:"gable"|"hip"|"shed"|"flat";
   roof_color:string;
   siding_color:string;
+  trim_color?:string;
+  garage_color?:string;
+  front_door_color?:string;
+  shutter_color?:string;
+  window_frame_color?:string;
+  window_glass_color?:string;
   roof_ridge_direction:"front_to_back"|"left_to_right";
   roof_pitch:"low"|"medium"|"steep";
   openings:Array<{kind:"window"|"entry_door"|"garage_door";x:number;y:number;width:number;height:number;shape?:"arched"|"rectangular";shutters?:boolean}>;
