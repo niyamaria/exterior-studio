@@ -48,3 +48,19 @@
 .reference-model-row strong{font-size:13px;color:#284937}
 .reference-model-row span{font-size:12px;line-height:1.6;color:#62766b}
 .reference-model-row .upload{background:white}
+
+
+.photo-selection{margin:0 4vw 20px;padding:20px 23px;background:white;border:1px solid #dce2d9;border-radius:11px}
+.photo-selection-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.photo-selection-heading strong{font-size:15px;color:#284b39}
+.photo-selection-heading p{font-size:12px;line-height:1.65;margin:6px 0 0;color:#677a6d}
+.photo-count{background:#e8eee7;border-radius:30px;padding:7px 12px;font-size:12px;color:#45634b;white-space:nowrap}
+.photo-selection-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:13px;margin-top:18px}
+.photo-selection-item{min-width:0;border:1px solid #e2e7dd;background:#f7f8f5;border-radius:9px;padding:10px;display:flex;flex-direction:column;gap:9px}
+.photo-selection-item img{width:100%;height:130px;object-fit:contain;background:#e7eae3;border-radius:6px}
+.photo-selection-item>span{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#778579}
+.photo-selection-meta{display:flex;align-items:center;gap:7px}
+.photo-selection-meta select{flex:1;min-width:0;padding:8px 5px;border:1px solid #cbd7cb;border-radius:6px;background:white;color:#365441;font-size:12px}
+.photo-selection-meta button{border:0;background:transparent;color:#995c49;font-size:11px;padding:7px 3px}
+.photo-accuracy-note{font-size:12px;color:#5e7565;line-height:1.6;margin:15px 0 0}
+.photo-upload-error{margin:0 4vw 18px}
