@@ -200,6 +200,15 @@ export default function Home(){
         }
       }
       gltf.scene.updateMatrixWorld(true);
+      // Place the imported site's surface on the viewer's world ground (Y=0).
+      // Without this, a raised foundation pushes the stairs below the
+      // preview's own ground plane, hiding the elevation difference.
+      if(floor.mesh){
+        const lawnBounds=new THREE.Box3().setFromObject(floor.mesh);
+        const lawnSurface=lawnBounds.max.y;
+        gltf.scene.position.y-=lawnSurface;
+        gltf.scene.updateMatrixWorld(true);
+      }
       x.group.add(gltf.scene);
       // Frame architectural meshes, not the 43 m lawn / driveway footprint.
       const houseBounds=new THREE.Box3();
@@ -250,6 +259,11 @@ export default function Home(){
    if(!housePlan)return;
    const base={present:false,count:0,center_x:.5,width:.15,...housePlan.entry_steps};
    editPlan({...housePlan,entry_steps:{...base,[field]:value}});
+ }
+ function updateFoundation(field:"raised"|"height",value:number|boolean){
+   if(!housePlan)return;
+   const base={raised:!!housePlan.entry_steps?.present,height:.65,...housePlan.foundation};
+   editPlan({...housePlan,foundation:{...base,[field]:value}});
  }
  function updatePorch(field:"x"|"width"|"depth"|"railing",value:number|boolean){
    if(!housePlan)return;
@@ -378,6 +392,12 @@ export default function Home(){
     <div className="facade-control-grid">
      {(["x","y","width","height"] as const).map(field=><label key={field}>{field.toUpperCase()} <input type="number" step=".01" min="0" max="1" value={housePlan.door?.[field]??0} onChange={e=>updateDoor(field,Math.max(0,Math.min(1,Number(e.target.value))))}/></label>)}
     </div>
+    <strong>Ground and foundation elevation</strong>
+    <label className="facade-checkbox"><input type="checkbox" checked={!!housePlan.foundation?.raised} onChange={e=>updateFoundation("raised",e.target.checked)}/> Raised front porch / house floor</label>
+    <div className="facade-control-grid">
+     <label>Height (meters) <input type="number" step=".05" min="0" max="1.7" disabled={!housePlan.foundation?.raised} value={housePlan.foundation?.height??0} onChange={e=>updateFoundation("height",Math.max(0,Math.min(1.7,Number(e.target.value))))}/></label>
+    </div>
+    <p>The height is an estimate from the step count and visible foundation. It should raise the porch above the yard, not create another story.</p>
     <strong>Entrance stairs</strong>
     <label className="facade-checkbox"><input type="checkbox" checked={!!housePlan.entry_steps?.present} onChange={e=>updateSteps("present",e.target.checked)}/> Visible front steps</label>
     <div className="facade-control-grid">
