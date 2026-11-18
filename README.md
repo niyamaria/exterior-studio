@@ -145,3 +145,11 @@ If Gemini is overloaded, retry later or import the detailed GLB directly. The lo
 If **Analyze house photo** or **Build 3D from photos** shows a timeout, the browser is working but Gemini did not respond before the request deadline. The app now uses separate per-attempt timeouts with at most two calls on connection errors and HTTP 5xx, instead of the previous shared 60-second timeout that made retries ineffective. Larger uploaded images are also resized to at most 1600 pixels on their long side for API analysis when this reduces their size; the original local photo preview remains unchanged. No change is needed to the API key or billing. Gemini can still be temporarily unavailable, and free-tier rate limits may still apply. Do not repeatedly hammer the API during outages.
 
 For a quick smoke test, use **Build 3D from photos** (one Gemini planning call + local Blender), rather than running both the analysis and the builder unnecessarily.
+
+## Photo-based color recognition
+
+Gemini scene planning now requests distinct six-digit HEX estimates for siding, roof, trim, garage, front door, shutters, window frames and glazing. The Blender generator applies these colors to their corresponding semantic meshes; it no longer hardcodes beige trim/garage and brown doors. For `siding_style: "lap"`, it additionally builds subtle horizontal siding lines instead of leaving a featureless wall.
+
+The Material Studio starts with the detected roof/siding/trim/garage/shutter colors and displays the exact current color plus an adjustable color picker in case lighting, shadows, or Gemini's visual estimate make it inaccurate. These values are visual estimates derived from the real photograph, not verified manufacturer paint names or color-calibrated readings.
+
+Regenerate from the uploaded photo after pulling these changes; an existing static GLB will not update automatically.
