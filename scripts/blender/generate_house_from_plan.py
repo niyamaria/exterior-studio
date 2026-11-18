@@ -152,7 +152,9 @@ def shutters(name, cx, front, bottom, width, height, color="#30363a"):
 
 
 def generate(plan):
-    H = 6.4 if int(plan["stories"]) == 2 else 4.0
+    # A raised dormer is not necessarily a full second story.
+    is_cottage = plan.get("roof_feature") == "central_dormer"
+    H = 6.4 if int(plan["stories"]) == 2 and not is_cottage else 3.4 if is_cottage else 4.0
     wall = plan.get("siding_color", "#ebe9e3")
     roof = plan.get("roof_color", "#4c5358")
     # Do not make white roofing the same color as siding, which obscures form.
@@ -189,6 +191,8 @@ def generate(plan):
 
     eave = H + .1
     rise = {"low": 1.3, "medium": 2.1, "steep": 3.0}.get(plan.get("roof_pitch"), 2.1)
+    if is_cottage:
+        rise=max(2.5,rise)  # Side-to-side steep cottage roof
     ridge = eave + rise
     over = .55
 
@@ -225,9 +229,10 @@ def generate(plan):
         dx0,dx1=dc-dw/2,dc+dw/2
         # Main roof slopes up toward y=0. The dormer face emerges from its
         # lower front half; proportions inferred, never measured.
-        dy=FRONT+1.45
-        dormer_base=H+.95
-        dormer_rise=max(.75,min(2.2,float(dormer.get("rise",.4))*H))
+        dy=FRONT+1.35
+        # Place dormer face on sloped roof with enough vertical exposure for real windows.
+        dormer_base=H+.58
+        dormer_rise=max(1.15,min(2.2,float(dormer.get("rise",.4))*H))
         dormer_top=dormer_base+dormer_rise
         poly("DORMER__front_wall","siding",
              [(dx0,dy,dormer_base),(dx1,dy,dormer_base),
@@ -236,12 +241,17 @@ def generate(plan):
         gable("DORMER",dx0,dx1,dormer_top-.72,dormer_top,
               dy,dy+2.1,wall,roof,trim,True)
         observed_dormer_windows=plan.get("dormer_windows") or []
-        for j in range(max(0,min(4,len(observed_dormer_windows) if observed_dormer_windows else int(dormer.get("window_count",2))))):
-            count=max(1,min(4,int(dormer.get("window_count",2))))
-            ww=min(.64,dw/(count+1)*.62)
+        # Preserve a photographed double-window assembly even when the vision
+        # model counts the group as one opening.
+        detected_count=max(0,min(4,int(dormer.get("window_count",2))))
+        if is_cottage and detected_count == 1 and len(observed_dormer_windows) <= 1:
+            detected_count=2
+        count=max(1,detected_count)
+        for j in range(count):
+            ww=min(.72,dw/(count+1)*.68)
             cx=dx0+(j+1)*dw/(count+1)
             wz=dormer_base+.48
-            if observed_dormer_windows:
+            if len(observed_dormer_windows) >= count:
                 anchor=observed_dormer_windows[j]
                 cx=max(dx0+.2,min(dx1-.2,(float(anchor["x"])+float(anchor["width"])/2-.5)*W))
                 ww=max(.23,min(.82,float(anchor["width"])*W))
@@ -312,6 +322,13 @@ def generate(plan):
             z = max(h / 2 + .04, min(H - h / 2 - .06,
                 normalized_center_y * H))
             front = FRONT - .22
+        # Image y often includes sky and landscaping. Enforce a ground-floor
+        # door with its bottom at the finished porch elevation, not floating
+        # halfway up the wall or appearing as a small square window.
+        if kind == "entry_door":
+            h=max(2.10,min(2.55,h))
+            w=max(.88,min(1.35,w))
+            z=h/2+.15
         shape = opening.get("shape", "rectangular")
         has_shutters = bool(opening.get("shutters", False))
         if kind == "garage_door":
@@ -410,6 +427,14 @@ def generate(plan):
     porch = plan.get("porch") or {}
     porch_width=max(0.0,float(porch.get("width",0)))
     posts = plan.get("porch_posts", [])[:8]
+    if is_cottage:
+        # Typical front-porch cottage: roof overhang spans the front facade,
+        # while the railing/porch deck may occupy only its right half.
+        # A detected narrow porch zone is not the width of the roofed porch.
+        porch_width=max(porch_width,.70)
+        porch={**porch,"x":min(float(porch.get("x",.08)),.15)}
+        if len(posts)<2:
+            posts=[.09,.48,.90]
     if porch_width>.10 or posts:
         # Reconstruct the observed front porch span, not merely a tiny
         # awning between whichever two posts Gemini happened to count.
@@ -427,7 +452,7 @@ def generate(plan):
             right=max(xs)+.55
             width=max(2.0,right-left)
         middle=(left+right)*.5
-        pz=min(H*.8,3.12)
+        pz=min(H*.89,3.12)
         depth=FRONT-max(.9,min(2.0,float(porch.get("depth",.14))*W))
         for i,x in enumerate(xs):
             box("PORCH__post_%02d"%i,"trim",(x,depth,pz/2),(.18,.18,pz),trim)
