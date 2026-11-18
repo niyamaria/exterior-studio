@@ -1,0 +1,100 @@
+{
+  "stories": 1,
+  "roof_type": "gable",
+  "roof_color": "#5C6064",
+  "siding_color": "#E5E4DF",
+  "trim_color": "#F9F8F3",
+  "garage_color": "#F5F5F0",
+  "front_door_color": "#886549",
+  "shutter_color": "#303e40",
+  "window_frame_color": "#f6f4ee",
+  "window_glass_color": "#263f49",
+  "roof_ridge_direction": "front_to_back",
+  "roof_pitch": "medium",
+  "roof_feature": "front_gable",
+  "dormer": {
+    "center_x": 0.5,
+    "width": 0,
+    "rise": 0,
+    "window_count": 0
+  },
+  "dormer_windows": [],
+  "porch": {
+    "x": 0,
+    "width": 0,
+    "depth": 0,
+    "railing": false
+  },
+  "porch_posts": [],
+  "entry_steps": {
+    "present": false,
+    "count": 0,
+    "center_x": 0.53,
+    "width": 0.1
+  },
+  "door": {
+    "x": 0.5,
+    "y": 0.1,
+    "width": 0.078,
+    "height": 0.29
+  },
+  "openings": [
+    {
+      "kind": "garage_door",
+      "x": 0.1,
+      "y": 0.1,
+      "width": 0.3,
+      "height": 0.32,
+      "shape": "rectangular",
+      "shutters": false
+    },
+    {
+      "kind": "window",
+      "x": 0.67,
+      "y": 0.19,
+      "width": 0.18,
+      "height": 0.31,
+      "shape": "rectangular",
+      "shutters": false
+    },
+    {
+      "kind": "window",
+      "x": 0.49,
+      "y": 0.68,
+      "width": 0.055,
+      "height": 0.12,
+      "shape": "rectangular",
+      "shutters": false
+    }
+  ],
+  "garage_side": "left",
+  "siding_style": "board_and_batten",
+  "front_gables": [
+    {
+      "center_x": 0.65,
+      "width": 0.66,
+      "height_ratio": 0.72
+    },
+    {
+      "center_x": 0.255,
+      "width": 0.48,
+      "height_ratio": 0.43
+    }
+  ],
+  "side_openings": [],
+  "observed_views": [
+    "front"
+  ],
+  "architectural_notes": "Manually estimated test fixture: real white board-and-batten farmhouse photo, projecting garage gable on left, tall main gable on right, recessed entry and windows; all side/rear dimensions inferred.",
+  "foundation": {
+    "raised": false,
+    "height": 0
+  },
+  "upper_level": {
+    "type": "none",
+    "width": 0,
+    "height": 0,
+    "inset": 0,
+    "windows": 0
+  }
+}
