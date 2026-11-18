@@ -88,7 +88,13 @@ export async function POST(request:NextRequest) {
     ...plan,stories:clamp(Math.round(plan.stories),1,2),
     openings,porch_posts:plan.porch_posts.slice(0,8).map(v=>clamp(v,0,1)),
     roof_feature:plan.roof_feature,
-    door:{x:clamp(plan.door.x,0,1),y:clamp(plan.door.y,0,1),width:clamp(plan.door.width,0,.8),height:clamp(plan.door.height,0,.9)},
+    // Normalized y refers to the entire uploaded image, including sky/trees.
+    // A ground-floor entrance cannot sit in the central upper roof dormer.
+    // Keep a deliberately conservative gate for detected central-dormer cottages;
+    // manual review still controls the final door position.
+    door:{x:clamp(plan.door.x,0,1),
+      y:plan.roof_feature==="central_dormer"&&plan.door.y>.38?.20:clamp(plan.door.y,0,1),
+      width:clamp(plan.door.width,0,.8),height:clamp(plan.door.height,0,.9)},
     entry_steps:{present:plan.entry_steps.present,count:clamp(Math.round(plan.entry_steps.count),0,10),center_x:clamp(plan.entry_steps.center_x,0,1),width:clamp(plan.entry_steps.width,0,.9)},
     foundation:{raised:plan.foundation.raised,height:plan.foundation.raised?clamp(plan.foundation.height,.12,1.7):0},
     dormer_windows:(plan.dormer_windows||[]).slice(0,4).map(o=>({x:clamp(o.x,0,1),y:clamp(o.y,0,1),width:clamp(o.width,.02,.5),height:clamp(o.height,.03,.5)})),
