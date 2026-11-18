@@ -417,7 +417,10 @@ def generate(plan):
             left=(float(porch.get("x",0))-.5)*W
             width=max(2.0,min(W,porch_width*W))
             right=left+width
-            xs=[left+.18,right-.18]
+            if posts:
+                xs=[max(left+.12,min(right-.12,(float(x)-.5)*W)) for x in posts]
+            else:
+                xs=[left+.18,right-.18]
         else:
             xs=[(float(x)-.5)*W for x in posts]
             left=min(xs)-.55
