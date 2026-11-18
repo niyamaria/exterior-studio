@@ -84,6 +84,7 @@ export async function POST(request:NextRequest) {
     ...plan,stories:clamp(Math.round(plan.stories),1,2),
     openings,porch_posts:plan.porch_posts.slice(0,8).map(v=>clamp(v,0,1)),
     roof_feature:plan.roof_feature,
+    roof_ridge_direction:plan.roof_feature==="central_dormer"?"left_to_right":plan.roof_ridge_direction,
     dormer:{center_x:clamp(plan.dormer.center_x,0,1),width:clamp(plan.dormer.width,0,.75),rise:clamp(plan.dormer.rise,0,.9),window_count:clamp(plan.dormer.window_count,0,4)},
     porch:{x:clamp(plan.porch.x,0,1),width:clamp(plan.porch.width,0,Math.max(0,1-plan.porch.x)),depth:clamp(plan.porch.depth,0,.4),railing:plan.porch.railing},
     observed_views:photos.map(p=>p.view),
