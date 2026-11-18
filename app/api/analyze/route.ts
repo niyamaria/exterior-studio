@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchGeminiWithRetry } from "../../../lib/gemini-retry";
+import {readHousePhotos, photoParts} from "../../../lib/house-photos";
 
 export const runtime = "nodejs";
 
@@ -93,25 +94,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const uploaded = form.get("photo");
-  if (!(uploaded instanceof File)) {
-    return NextResponse.json({ error: "Choose a photo before analyzing." }, { status: 400 });
+  let photos:Awaited<ReturnType<typeof readHousePhotos>>;
+  try{photos=await readHousePhotos(form)}catch(e){
+    return NextResponse.json({error:e instanceof Error?e.message:"Invalid photos."},{status:400});
   }
-  if (!allowedTypes.has(uploaded.type)) {
-    return NextResponse.json(
-      { error: "Supported image formats: JPEG, PNG, and WebP." },
-      { status: 400 }
-    );
-  }
-  if (!uploaded.size || uploaded.size > MAX_IMAGE_BYTES) {
-    return NextResponse.json(
-      { error: "Photo must be smaller than 8 MB and not empty." },
-      { status: 413 }
-    );
-  }
-
-  const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
-  const encoded = Buffer.from(await uploaded.arrayBuffer()).toString("base64");
+  const model=process.env.GEMINI_MODEL||"gemini-3.5-flash-lite";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
 
@@ -130,11 +117,9 @@ export async function POST(request: NextRequest) {
               role: "user",
               parts: [
                 {
-                  text: "Analyze this REAL home exterior photograph. Describe only architectural elements that are visibly supported by the image: siding or wall areas, roof, windows, trim, doors, garage, and occlusions. Be careful not to invent hidden elevations, exact dimensions, or manufacturer/product identities. Identify the camera viewpoint, list visible architectural components with best-effort counts and confidence, and say which other photos would be needed for a consistent 3D reconstruction. Do NOT claim you produced segmentation masks or a 3D model. If it is not a house exterior, say so and give an empty list of visible components.",
+                  text: "Analyze 1 to 4 real exterior photos of the SAME house. Use the labeled viewpoints. Preserve the facade seen in the FRONT photo as the primary design reference; do not average distinct sides into a generic facade. Identify only observed architectural elements, including arches, shutters, windows, trim, garage, gutters, rooflines, style, and occlusions. Distinguish confirmed multiple-view observations from unseen/estimated geometry. Summarize visible features and remaining necessary viewpoints. Never invent exact measurements, hidden details, brand identity, segmentation masks or a finished 3D reconstruction. If the inputs are not house photos, return an empty feature list.",
                 },
-                {
-                  inlineData: { mimeType: uploaded.type, data: encoded },
-                },
+                ...photoParts(photos),
               ],
             },
           ],
@@ -211,7 +196,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ analysis, model });
+    return NextResponse.json({ analysis, model, views:photos.map(p=>p.view),photo_count:photos.length });
   } catch (error) {
     const message =
       error instanceof Error && error.name === "AbortError"
