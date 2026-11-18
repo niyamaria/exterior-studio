@@ -81,7 +81,19 @@ export async function POST(request:NextRequest) {
   const plan=parsed as HousePlan;
   // The defining feature of an overlapping-gable farmhouse is two separate
   // front-facing roof masses, not a dormer on a transverse roof.
-  const garageOpening=plan.openings.some(o=>o.kind==="garage_door");
+  const garageOpening=plan.openings.find(o=>o.kind==="garage_door");
+  // If Gemini sees a front garage + gabled entrance but describes only one
+  // gable, recover the second roof mass using the garage opening's location.
+  if(garageOpening && plan.roof_feature==="front_gable" &&
+     plan.front_gables.length===1){
+    const gx=garageOpening.x+garageOpening.width/2;
+    const existing=plan.front_gables[0];
+    if(Math.abs(existing.center_x-gx)>.19){
+      const inferred={center_x:gx,width:Math.max(.30,Math.min(.49,garageOpening.width+.10)),
+        height_ratio:Math.max(.27,Math.min(.43,existing.height_ratio*.72))};
+      plan.front_gables.push(inferred);
+    }
+  }
   const hasDoubleGable=plan.front_gables.length>=2 && garageOpening;
   if(hasDoubleGable){
     plan.roof_feature="front_gable";
