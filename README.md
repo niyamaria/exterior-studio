@@ -169,3 +169,20 @@ The single-photo and multi-photo pipeline now separates **photo interpretation**
 The existing **Analyze house photo → Generate schematic 3D** route is still available, and the separate **Build with Blender** action can also build from the reviewed plan. The previous direct one-click Blender build was intentionally replaced with a review gate to avoid repeatedly generating visibly incorrect geometry.
 
 The overlay positions are *approximate*: normalized facade coordinates are overlaid on the full source image, which may include sky, trees or perspective. This is a review aid, not calibrated image segmentation or a drag-to-mask tool. Side/rear geometry and depth remain estimates in one-photo mode, and additional photos do not guarantee exact reconstruction.
+
+## Cottage shape fidelity correction (November 18)
+
+Recent reference-photo testing showed the planning/review pipeline could label a door, staircase and dormer yet still build the wrong *house massing*. The Blender generator now treats the `central_dormer` archetype as a **single-height cottage under a broad transverse roof**, rather than a tall second-story rectangular facade. It also:
+- ensures the exposed dormer is wide enough for paired windows; preserves two visible dormer windows even if Gemini groups them as a single opening;
+- places the real front door on the ground-floor porch plane rather than treating photo-relative y as an elevated wall position;
+- distinguishes roofed front porch width from the smaller railed sitting area;
+- keeps separately selectable stair treads and corrects review overlay scaling to the visible image width.
+
+A deliberately manually estimated **test fixture** (`examples/cottage-facade-test.json`) can reproduce this house type without Gemini. For testing on a Mac with Blender installed:
+```bash
+mkdir -p output
+/Applications/Blender.app/Contents/MacOS/Blender --background \
+ --python scripts/blender/generate_house_from_plan.py -- \
+ --plan examples/cottage-facade-test.json --out output/cottage-test.glb
+```
+Import the resulting GLB in Exterior Studio to compare it with a Gemini-produced plan. The fixture is a visual approximation, not measured 3D reconstruction. The pipeline still lacks reliable true 2D image segmentation and calibrated projection, so manual numeric review and some visual deviation remain necessary.
