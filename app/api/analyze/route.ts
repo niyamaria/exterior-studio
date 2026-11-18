@@ -3,6 +3,7 @@ import { fetchGeminiWithRetry } from "../../../lib/gemini-retry";
 import {readHousePhotos, photoParts} from "../../../lib/house-photos";
 
 export const runtime = "nodejs";
+export const maxDuration = 180;
 
 const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -99,8 +100,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({error:e instanceof Error?e.message:"Invalid photos."},{status:400});
   }
   const model=process.env.GEMINI_MODEL||"gemini-3.5-flash-lite";
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
 
   try {
     const response = await fetchGeminiWithRetry(
@@ -130,7 +129,6 @@ export async function POST(request: NextRequest) {
             temperature: 0.2,
           },
         }),
-        signal: controller.signal,
       }
     );
 
@@ -154,7 +152,7 @@ export async function POST(request: NextRequest) {
       // A provider message may contain sensitive request information. Return only
       // safe, actionable status details to the browser; keep diagnostics server-side.
       if (response.status === 503 || response.status === 502 || response.status === 504) {
-        return NextResponse.json({ error: "Gemini is temporarily overloaded. Automatically retried the request 3 times without success. Please try again later." }, { status: 503 });
+        return NextResponse.json({ error: "Gemini is temporarily overloaded. Retried the request twice without success. Please try again later." }, { status: 503 });
       }
       if (response.status === 401 || response.status === 403) {
         return NextResponse.json(
@@ -200,10 +198,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message =
       error instanceof Error && error.name === "AbortError"
-        ? "Analysis timed out. Try a smaller image."
+        ? "Gemini timed out after two attempts. The provider may be overloaded; please retry."
         : "Unable to analyze image. Check the development server logs.";
     return NextResponse.json({ error: message }, { status: 502 });
-  } finally {
-    clearTimeout(timeout);
   }
 }
