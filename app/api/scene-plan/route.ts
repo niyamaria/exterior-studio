@@ -4,6 +4,7 @@ import { isHousePlan, type HousePlan } from "../../../lib/house-plan";
 import {readHousePhotos,photoParts} from "../../../lib/house-photos";
 
 export const runtime = "nodejs";
+export const maxDuration = 180;
 const MAX_BYTES = 8 * 1024 * 1024;
 const TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -40,13 +41,10 @@ export async function POST(request:NextRequest) {
    return NextResponse.json({error:error instanceof Error?error.message:"Invalid photo selection."},{status:400});
  }
  const model=process.env.GEMINI_MODEL||"gemini-3.5-flash-lite";
- const abort=new AbortController();
- const timer=setTimeout(()=>abort.abort(),60000);
  try {
   const response=await fetchGeminiWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
     method:"POST",
     headers:{"Content-Type":"application/json","x-goog-api-key":key},
-    signal:abort.signal,
     body:JSON.stringify({
       contents:[{role:"user",parts:[
        {text:"Create a precise normalized architectural SCHEMATIC for a procedural Blender model from the provided labeled photos of ONE REAL HOUSE. Focus on preserving the front-facing silhouette. If only one photo is supplied, describe ONLY the visible facade accurately: garage position, entrance, window count and bounding boxes, individual front gables, roof pitch, story count, color and siding type. Do NOT add invented front windows or replace arches with other styles. For each front opening identify shape as arched or rectangular, and whether shutters are clearly visible. These fields control the actual mesh geometry. Use normalized facade coordinates: x=left edge, y=bottom edge (ground=0), width and height fractions 0..1. For additional LEFT/RIGHT/REAR photos, extract openings on those elevations into side_openings with corresponding view label. Each opening coordinate is relative to its OWN photographed elevation (x left-to-right from that viewpoint). Never place features on views that were not provided; use an empty list for unseen elevations. The FRONT photo's features must take priority and should never be averaged with side facades. Include separate front_gables (center_x,width,height_ratio); keep the larger main gable and smaller garage gable distinct. Report roof orientation, siding_style, garage_side, porch_posts based on visual evidence only. If FRONT image absent, openings should be [] unless you can confidently establish the front. No dimension is measured; depths and hidden walls must be treated as estimates. Maximum 18 front openings, 20 additional openings, 8 posts and 4 gables. Return JSON conforming to schema."},
@@ -57,7 +55,7 @@ export async function POST(request:NextRequest) {
   });
   const payload=await response.json();
   if(!response.ok){
-    if(response.status===503||response.status===502||response.status===504)return NextResponse.json({error:"Gemini is temporarily overloaded. The request was automatically retried 3 times. Please try again later."},{status:503});
+    if(response.status===503||response.status===502||response.status===504)return NextResponse.json({error:"Gemini is temporarily overloaded. The request was retried twice. Please try again later."},{status:503});
     const msg=String(payload?.error?.message||"Check Gemini project/model access.").slice(0,350);
     return NextResponse.json({error:response.status===429?"Gemini free-tier rate limit reached; retry later.":`Gemini returned ${response.status}: ${msg}`},{status:response.status===429?429:502});
   }
@@ -86,6 +84,8 @@ export async function POST(request:NextRequest) {
     roof_color:/^#[0-9a-fA-F]{6}$/.test(plan.roof_color)?plan.roof_color:"#414850",
     architectural_notes:plan.architectural_notes.slice(0,500)
   },model});
- }catch(e){return NextResponse.json({error:e instanceof Error&&e.name==="AbortError"?"Geometry planning timed out.":"Could not generate the house layout."},{status:502})}
- finally{clearTimeout(timer)}
+ }catch(e){
+   console.error("Gemini planning failure:",e instanceof Error?e.message:"Unknown error");
+   return NextResponse.json({error:e instanceof Error&&e.name==="AbortError"?"Gemini scene planning timed out after retries. Please try again.":"Gemini planning connection failed after retries; check the terminal and try again."},{status:502});
+ }
 }
