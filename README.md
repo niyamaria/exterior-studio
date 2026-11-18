@@ -159,3 +159,13 @@ Regenerate from the uploaded photo after pulling these changes; an existing stat
 The planner now distinguishes a **central roof dormer** from a full-width front gable. A central dormer preserves the wide transverse main roof, constructs a separate raised dormer gable and pairs its windows above the main eave. Dormer windows are not duplicated on the ground-floor wall. The planner also returns normalized porch extent `{x,width,depth,railing}` so Blender can build columns, soffit, porch floor, and optional railing across the photographed span.
 
 **Retest:** `git pull`, restart `npm run dev`, upload the reference again and click **Build 3D from photos**. The new Gemini plan and Blender export are required; a previously generated GLB remains unchanged. One photo cannot provide measured depths or hidden side/back details. These are structurally informed approximations, not photogrammetric reconstruction, and the new code still needs a first live validation in Blender.
+
+## Facade alignment review before Blender generation (November 2026)
+
+The single-photo and multi-photo pipeline now separates **photo interpretation** from **3D generation**. The primary action, **Detect facade for 3D**, uses Gemini to identify front-door bounds, front entrance steps (count, center and width), central dormer/window anchors, porch footprint, railing and support columns. The photo review panel then displays estimated colored overlays and editable numeric fields.
+
+**Workflow:** upload 1–4 real house photos, label the front view, click **Detect facade for 3D**, inspect/correct the main entrance, steps, porch and dormer, then click **Build reviewed 3D**. Blender uses the corrected JSON; adjusting coordinates and rebuilding does **not** consume another Gemini analysis request.
+
+The existing **Analyze house photo → Generate schematic 3D** route is still available, and the separate **Build with Blender** action can also build from the reviewed plan. The previous direct one-click Blender build was intentionally replaced with a review gate to avoid repeatedly generating visibly incorrect geometry.
+
+The overlay positions are *approximate*: normalized facade coordinates are overlaid on the full source image, which may include sky, trees or perspective. This is a review aid, not calibrated image segmentation or a drag-to-mask tool. Side/rear geometry and depth remain estimates in one-photo mode, and additional photos do not guarantee exact reconstruction.
