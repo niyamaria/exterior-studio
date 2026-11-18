@@ -64,3 +64,9 @@
 .photo-selection-meta button{border:0;background:transparent;color:#995c49;font-size:11px;padding:7px 3px}
 .photo-accuracy-note{font-size:12px;color:#5e7565;line-height:1.6;margin:15px 0 0}
 .photo-upload-error{margin:0 4vw 18px}
+
+
+.photo-direct-actions{display:flex;align-items:center;gap:17px;flex-wrap:wrap;margin:17px 0 4px;padding:15px;background:#edf3ed;border:1px solid #d4e1d5;border-radius:8px}
+.photo-direct-actions .dark{white-space:nowrap}
+.photo-direct-actions .dark:disabled{opacity:.6;cursor:wait}
+.photo-direct-actions>span{font-size:12px;line-height:1.5;color:#55705e;flex:1;min-width:220px}
