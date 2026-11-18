@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Typecheck, tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Frontend unit and regression tests
+        run: npm test
+
+      - name: Blender script and fixture tests
+        run: npm run test:python
+
+      - name: Production Next.js build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          # Server-side Gemini credentials are NOT required to build or test.
+          # Live API tests should be isolated from CI to avoid secret exposure.
+
+      - name: CI summary
+        if: always()
+        run: |
+          echo '## Exterior Studio CI' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Node 22 + Python 3.12: typecheck, unit tests, fixture checks, production build.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'This pipeline validates changes; it does not deploy to production.' >> "$GITHUB_STEP_SUMMARY"
