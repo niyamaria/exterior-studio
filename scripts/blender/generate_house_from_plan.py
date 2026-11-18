@@ -153,7 +153,10 @@ def shutters(name, cx, front, bottom, width, height, color="#30363a"):
 
 def generate(plan):
     # A raised dormer is not necessarily a full second story.
-    is_cottage = plan.get("roof_feature") == "central_dormer"
+    upper = plan.get("upper_level") or {}
+    upper_type = upper.get("type") or ("dormer" if plan.get("roof_feature") == "central_dormer" else "none")
+    is_cottage = plan.get("roof_feature") == "central_dormer" or upper_type == "half_story"
+    is_half_story = upper_type == "half_story"
     H = 6.4 if int(plan["stories"]) == 2 and not is_cottage else 3.4 if is_cottage else 4.0
     foundation_plan=plan.get("foundation") or {}
     steps_plan=plan.get("entry_steps") or {}
@@ -245,46 +248,74 @@ def generate(plan):
     # left-to-right pitched roof, not a full-width front gable. The dormer
     # meshes sit above the front roof plane and are selectable separately.
     dormer = plan.get("dormer") or {}
-    has_dormer = plan.get("roof_feature") == "central_dormer" and float(dormer.get("width",0)) > .08
+    has_dormer = (upper_type in ("dormer","half_story") and
+                  (float(dormer.get("width",0)) > .08 or float(upper.get("width",0)) > .08))
     if has_dormer:
         dc=(float(dormer.get("center_x",.5))-.5)*W
-        dw=max(3.15 if is_cottage else 1.3,min(4.8,float(dormer.get("width",.3))*W))
+        user_width=float(upper.get("width",0)) if is_half_story else float(dormer.get("width",.3))
+        dw=max(3.6 if is_half_story else 2.0,
+               min(5.3 if is_half_story else 4.8,max(.12,user_width)*W))
         dx0,dx1=dc-dw/2,dc+dw/2
-        # Main roof slopes up toward y=0. The dormer face emerges from its
-        # lower front half; proportions inferred, never measured.
-        dy=FRONT+1.35
-        # Place dormer face on sloped roof with enough vertical exposure for real windows.
-        dormer_base=H+.58
-        dormer_rise=max(1.15,min(2.2,float(dormer.get("rise",.4))*H))
-        dormer_top=dormer_base+dormer_rise
-        poly("DORMER__front_wall","siding",
-             [(dx0,dy,dormer_base),(dx1,dy,dormer_base),
-              (dx1,dy,dormer_top-.72),(dc,dy,dormer_top),
-              (dx0,dy,dormer_top-.72)],wall,True)
-        gable("DORMER",dx0,dx1,dormer_top-.72,dormer_top,
-              dy,dy+2.1,wall,roof,trim,True)
-        observed_dormer_windows=plan.get("dormer_windows") or []
-        # Preserve a photographed double-window assembly even when the vision
-        # model counts the group as one opening.
-        detected_count=max(0,min(4,int(dormer.get("window_count",2))))
-        if is_cottage and detected_count == 1 and len(observed_dormer_windows) <= 1:
-            detected_count=2
-        count=max(1,detected_count)
+
+        # Place the front of the upper facade in front of the sloping roof
+        # surface, rather than allowing the roof plane to hide the windows.
+        # A half-story is a raised, deep room mass; a dormer is a shallow detail.
+        dy=FRONT+.28 if is_half_story else FRONT+1.05
+        dormer_base=H+.45 if is_half_story else H+.58
+        wall_rise=max(1.45,min(2.25,float(upper.get("height",.52))*H)) if is_half_story else max(.65,min(1.45,float(dormer.get("rise",.4))*H*.62))
+        shoulder=dormer_base+wall_rise
+        roof_rise=max(.75,min(1.55,dw*.30))
+        dormer_top=shoulder+roof_rise
+        depth=max(1.65,min(3.6,float(upper.get("inset",.24))*D+1.2)) if is_half_story else 1.65
+        back=dy+depth
+
+        # Full upper-wall volume, not a flat triangle. It remains a distinct
+        # semantic component so siding is still recolorable from the website.
+        box("UPPER_LEVEL__front_wall","siding",
+            (dc,dy,dormer_base+wall_rise/2),
+            (dw,.19,wall_rise),wall,True)
+        if is_half_story:
+            box("UPPER_LEVEL__left_wall_estimated","siding",
+                (dx0,dy+depth/2,dormer_base+wall_rise/2),
+                (.17,depth,wall_rise),wall,True)
+            box("UPPER_LEVEL__right_wall_estimated","siding",
+                (dx1,dy+depth/2,dormer_base+wall_rise/2),
+                (.17,depth,wall_rise),wall,True)
+            box("UPPER_LEVEL__rear_wall_estimated","siding",
+                (dc,back,dormer_base+wall_rise/2),
+                (dw,.17,wall_rise),wall,True)
+            box("UPPER_LEVEL__floor_estimated","foundation",
+                (dc,dy+depth/2,dormer_base-.07),
+                (dw,depth,.14),"#b9b5aa",True)
+
+        # Roof peak starts above vertical dormer wall. Keeps an unmistakable
+        # 1.5-story profile, rather than a tiny triangular ornament.
+        gable("UPPER_LEVEL_GABLE",dx0,dx1,shoulder,dormer_top,
+              dy-.12,back+.08,wall,roof,trim,True)
+
+        observed=plan.get("dormer_windows") or []
+        detected=int(upper.get("windows",dormer.get("window_count",2))) if is_half_story else int(dormer.get("window_count",2))
+        count=max(0,min(4,detected))
+        if is_half_story and count==1:
+            count=2  # paired upper windows are defining for this cottage
         for j in range(count):
-            ww=min(.72,dw/(count+1)*.68)
+            ww=min(.86,dw/(count+1)*.63)
             cx=dx0+(j+1)*dw/(count+1)
-            wz=dormer_base+.48
-            if len(observed_dormer_windows) >= count:
-                anchor=observed_dormer_windows[j]
-                cx=max(dx0+.2,min(dx1-.2,(float(anchor["x"])+float(anchor["width"])/2-.5)*W))
-                ww=max(.23,min(.82,float(anchor["width"])*W))
-                wz=max(dormer_base+.30,min(dormer_top-.56,dormer_base+.48))
-            box("DORMER__window_casing_%02d"%j,"trim",
-                (cx,dy-.14,wz),(ww+.15,.12,.96),window_frame_color)
-            box("DORMER__window_glass_%02d"%j,"window",
-                (cx,dy-.23,wz),(ww,.08,.80),glass_color,False,True)
-            beam("DORMER__window_mullion_%02d"%j,"trim",
-                (cx,dy-.285,wz-.35),(cx,dy-.285,wz+.35),.035,window_frame_color)
+            if len(observed)==count:
+                anchor=observed[j]
+                cx=max(dx0+.28,min(dx1-.28,
+                    (float(anchor["x"])+float(anchor["width"])*.5-.5)*W))
+                ww=max(.32,min(.88,float(anchor["width"])*W))
+            wh=min(1.27,wall_rise*.76)
+            wz=dormer_base+wall_rise*.49
+            box("UPPER_WINDOW__casing_%02d"%j,"trim",
+                (cx,dy-.16,wz),(ww+.16,.12,wh+.15),window_frame_color)
+            box("UPPER_WINDOW__glass_%02d"%j,"window",
+                (cx,dy-.24,wz),(ww,.07,wh),glass_color,False,True)
+            box("UPPER_WINDOW__mullion_%02d"%j,"trim",
+                (cx,dy-.30,wz),(.035,.04,wh),window_frame_color)
+            box("UPPER_WINDOW__sill_%02d"%j,"trim",
+                (cx,dy-.22,wz-wh/2-.06),(ww+.19,.15,.09),window_frame_color)
 
     # Two-step farmhouse roofline:
     # dominant front gable is higher and farther back; smaller garage gable
