@@ -405,7 +405,7 @@ export default function Home(){
     {!photoSlots.some(p=>p.view==="front")&&<p>Add a labeled Front photo to use the facade overlay.</p>}
     <p>Colored outlines show the areas we detected.</p>
    </div>
-   <div className="facade-review-controls">
+   <details className="facade-review-controls"><summary>Fine-tune the details <span>Door · Steps · Porch · Roof ↗</span></summary><div className="facade-fields">
     <strong>Front door</strong>
     <div className="facade-control-grid">
      {(["x","y","width","height"] as const).map(field=><label key={field}>{field.toUpperCase()} <input type="number" step=".01" min="0" max="1" value={housePlan.door?.[field]??0} onChange={e=>updateDoor(field,Math.max(0,Math.min(1,Number(e.target.value))))}/></label>)}
@@ -453,7 +453,7 @@ export default function Home(){
      <label>Upper windows <input type="number" min="0" max="4" step="1" value={housePlan.dormer?.window_count??0} onChange={e=>housePlan.dormer&&editPlan({...housePlan,dormer:{...housePlan.dormer,window_count:Math.round(Number(e.target.value))},dormer_windows:[]})}/></label>
     </div>
     
-   </div>
+   </div></details>
   </div>
  </section>}
  <details className="technical-options"><summary>Advanced model options <span>Blender &amp; layout tools +</span></summary>
