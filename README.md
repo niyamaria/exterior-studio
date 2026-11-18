@@ -1,5 +1,7 @@
 # Exterior Studio
 
+[![CI](https://github.com/niyamaria/hardie-exterior-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/niyamaria/hardie-exterior-studio/actions/workflows/ci.yml)
+
 Independent student research prototype for a James Hardie-inspired homeowner design experience. **Not** an official James Hardie website or product catalog.
 
 ## Quick start (Mac / VS Code)
@@ -214,3 +216,21 @@ The Blender script builds a separate projecting garage front/side mesh, its own 
 ## Per-component layout editing (November 18)
 
 The facade review now uses independent, **collapsed-by-default** component accordions. Expand only the items you need to correct: front door, foundation, stairs, porch/posts, upper level, separate front gables, dormer, and each detected **Window N** or **Garage door N**. All opened window and garage sections expose normalized X/Y position and width/height. Values are clamped to the 0–1 facade extent and submitted in the same house plan to the Blender generator. Garage Y is now respected when the garage belongs to a projecting front wing rather than forcibly setting its height to ground. Editing the plan invalidates the previously built GLB; select **See my 3D home** again to regenerate. This does not re-run Gemini and preserves the color editor and export flows.
+
+## Automated testing & CI (GitHub Actions)
+
+The repository includes a real GitHub Actions pipeline in `.github/workflows/ci.yml` that runs on every push to `main`, every pull request targeting `main`, and manual dispatch. On a clean Ubuntu runner it provisions **Node.js 22 and Python 3.12**, installs npm dependencies, then runs:
+
+```bash
+npm run typecheck       # TypeScript static checks
+npm test                # Node built-in test runner: house plan, uploads, Gemini retry
+npm run test:python     # Python unittest: Blender syntax and fixture contracts
+npm run build           # production Next.js compilation
+```
+
+**Coverage:** valid/invalid architectural plans; regression fixtures for a raised half-story cottage and a two-front-gable garage house; uploading 1–4 photos; invalid file types/sizes, duplicate viewpoints and older clients; Gemini non-retryable responses and transient HTTP 503 recovery; Blender script parsing and static JSON contracts.
+
+**No credentials needed:** CI uses mock HTTP responses and does not call Gemini. Never commit `.env.local`, an API key, or real customer photographs. Live Gemini analysis and rendered Blender scene quality need separate integration / manual visual tests (Blender is not installed in the CI runner). All CI checks must pass before treating a change as verified; committing a workflow does **not** by itself prove it passed. Check the [Actions tab](https://github.com/niyamaria/hardie-exterior-studio/actions) for the latest status.
+
+**CI vs CD:** This is automated **continuous integration**, not production deployment yet. For honest **CI/CD** experience, connect the repo to a deployment platform (e.g., Vercel for Next.js), add its preview and production deployments on PR merge, and require the CI check before merging. Secure the server-side Gemini key in the hosting provider's environment variables. A real deployed URL and successful delivery workflow are prerequisites for claiming automated deployment on a résumé. The app also depends on a locally installed Blender binary for the current 3D build endpoint, so production hosting needs a separate Blender-capable service before full 3D generation can be deployed.
+
