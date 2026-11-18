@@ -186,3 +186,7 @@ mkdir -p output
  --plan examples/cottage-facade-test.json --out output/cottage-test.glb
 ```
 Import the resulting GLB in Exterior Studio to compare it with a Gemini-produced plan. The fixture is a visual approximation, not measured 3D reconstruction. The pipeline still lacks reliable true 2D image segmentation and calibrated projection, so manual numeric review and some visual deviation remain necessary.
+
+## Raised front entrance
+
+Gemini now provides foundation.raised and foundation.height (meters) for an entrance above surrounding ground. The review UI lets you correct that estimated elevation before building. Blender creates separate foundation walls and connects the exterior steps between yard grade and the raised porch. The GLB viewer also aligns the imported lawn with the display ground. This feature models a raised porch/foundation, not a hillside or a full second story. The cottage fixture uses an illustrative 0.68 m rise. Regenerate after pulling updates.
