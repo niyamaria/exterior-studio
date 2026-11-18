@@ -1,32 +1,38 @@
 /**
- * Bounded retry for transient Gemini API failures.
- * This code only retries the SAME configured model; it never switches to a
- * different model or billing tier without the developer explicitly choosing one.
+ * Bounded retries for transient Gemini failures.
+ *
+ * Requests formerly shared one 60s AbortController across ALL attempts.
+ * A slow attempt exhausted the entire budget and made subsequent retries
+ * impossible. Here each attempt has its own timeout and safe exponential
+ * backoff. Permission, quota and validation errors are returned immediately.
  */
 export async function fetchGeminiWithRetry(
   url: string,
   options: RequestInit,
-  maxAttempts = 3
+  maxAttempts = 2,
+  timeoutPerAttemptMs = 85000
 ): Promise<Response> {
-  let response: Response | undefined;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    // Each attempt gets its own short network deadline; preserve the caller's
-    // AbortSignal so a cancelled request is never retried.
-    response = await fetch(url, options);
-    if (![500, 502, 503, 504].includes(response.status) || attempt === maxAttempts - 1) {
-      return response;
+  const externalSignal=options.signal;
+  for(let attempt=0;attempt<maxAttempts;attempt++){
+    if(externalSignal?.aborted)throw new DOMException("Cancelled","AbortError");
+    const controller=new AbortController();
+    const onExternalAbort=()=>controller.abort();
+    externalSignal?.addEventListener("abort",onExternalAbort,{once:true});
+    const timeout=setTimeout(()=>controller.abort(),timeoutPerAttemptMs);
+    try {
+      const response=await fetch(url,{...options,signal:controller.signal,cache:"no-store"});
+      if(![500,502,503,504].includes(response.status)||attempt===maxAttempts-1)return response;
+      await response.body?.cancel();
+    }catch(error){
+      if(externalSignal?.aborted)throw error;
+      if(attempt===maxAttempts-1)throw error;
+      // Retry timeouts and network errors once, never quota/permission errors.
+    }finally{
+      clearTimeout(timeout);
+      externalSignal?.removeEventListener("abort",onExternalAbort);
     }
-    // Release the response body before repeating the request.
-    await response.body?.cancel();
-    const jitter = Math.floor(Math.random() * 250);
-    const delay = Math.min(4000, 900 * 2 ** attempt) + jitter;
-    await new Promise<void>((resolve, reject) => {
-      if (options.signal?.aborted) { reject(new DOMException("Aborted", "AbortError")); return; }
-      const timer = setTimeout(() => { options.signal?.removeEventListener("abort", onAbort); resolve(); }, delay);
-      function onAbort() { clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); }
-      options.signal?.addEventListener("abort", onAbort, { once: true });
-    });
+    const backoff=1000*Math.pow(2,attempt)+Math.floor(Math.random()*400);
+    await new Promise(resolve=>setTimeout(resolve,backoff));
   }
-  if (!response) throw new Error("No response received from Gemini.");
-  return response;
+  throw new Error("Gemini did not return a response.");
 }
