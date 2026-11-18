@@ -23,6 +23,7 @@ export type HousePlan = {
   dormer?:{center_x:number;width:number;rise:number;window_count:number};
   porch?:{x:number;width:number;depth:number;railing:boolean};
   entry_steps?:{present:boolean;count:number;center_x:number;width:number};
+  foundation?:{raised:boolean;height:number};
   door?:{x:number;y:number;width:number;height:number};
   dormer_windows?:Array<{x:number;y:number;width:number;height:number}>;
 };
@@ -43,6 +44,7 @@ export function isHousePlan(value:unknown):value is HousePlan {
   (p.roof_feature===undefined||["front_gable","central_dormer","none"].includes(p.roof_feature)) &&
   (p.dormer===undefined||(Number.isFinite(p.dormer.center_x)&&Number.isFinite(p.dormer.width)&&Number.isFinite(p.dormer.rise)&&Number.isInteger(p.dormer.window_count))) &&
   (p.porch===undefined||(Number.isFinite(p.porch.x)&&Number.isFinite(p.porch.width)&&Number.isFinite(p.porch.depth)&&typeof p.porch.railing==="boolean")) &&
+  (p.foundation===undefined||(typeof p.foundation.raised==="boolean"&&Number.isFinite(p.foundation.height)&&p.foundation.height>=0&&p.foundation.height<=2)) &&
   (p.entry_steps===undefined||(typeof p.entry_steps.present==="boolean"&&Number.isFinite(p.entry_steps.count)&&Number.isFinite(p.entry_steps.center_x)&&Number.isFinite(p.entry_steps.width))) &&
   (p.door===undefined||[p.door.x,p.door.y,p.door.width,p.door.height].every(Number.isFinite)) &&
   (p.dormer_windows===undefined||(Array.isArray(p.dormer_windows)&&p.dormer_windows.every(o=>[o.x,o.y,o.width,o.height].every(Number.isFinite)))) &&
