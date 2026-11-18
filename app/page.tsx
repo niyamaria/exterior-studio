@@ -447,7 +447,7 @@ export default function Home(){
      <label>Depth inset <input type="number" min="0" max=".6" step=".02" value={housePlan.upper_level?.inset??.22} onChange={e=>updateUpperLevel("inset",Math.max(0,Math.min(.6,Number(e.target.value))))}/></label>
      <label>Windows <input type="number" min="0" max="4" step="1" value={housePlan.upper_level?.windows??housePlan.dormer?.window_count??0} onChange={e=>updateUpperLevel("windows",Math.max(0,Math.min(4,Math.round(Number(e.target.value)))))} /></label>
     </div>
-    <p>For the cottage reference, select <strong>Half-story / upper living level</strong> and keep two upper windows. This builds an actual raised wall volume beneath the small gable instead of a flat roof ornament.</p>
+    <p>Choose the upper-level structure that best matches your home.</p>
     <strong>Dormer</strong>
     <div className="facade-control-grid">
      <label>Position X <input type="number" min="0" max="1" step=".01" value={housePlan.dormer?.center_x??.5} onChange={e=>housePlan.dormer&&editPlan({...housePlan,dormer:{...housePlan.dormer,center_x:Number(e.target.value)}})}/></label>
