@@ -260,6 +260,22 @@ export default function Home(){
    const base={present:false,count:0,center_x:.5,width:.15,...housePlan.entry_steps};
    editPlan({...housePlan,entry_steps:{...base,[field]:value}});
  }
+ function updateUpperLevel(field:"type"|"width"|"height"|"inset"|"windows",value:string|number){
+   if(!housePlan)return;
+   const current=housePlan.upper_level||{
+     type:housePlan.roof_feature==="central_dormer"?"dormer":"none",
+     width:housePlan.dormer?.width||.3,height:.50,inset:.22,
+     windows:housePlan.dormer?.window_count||2
+   };
+   const updated={...current,[field]:value} as NonNullable<HousePlan["upper_level"]>;
+   editPlan({...housePlan,upper_level:updated,
+     roof_feature:updated.type==="none"?"none":"central_dormer",
+     roof_ridge_direction:updated.type!=="none"?"left_to_right":housePlan.roof_ridge_direction,
+     dormer:{center_x:housePlan.dormer?.center_x||.5,
+       width:updated.width,rise:housePlan.dormer?.rise||.4,
+       window_count:updated.windows},
+     dormer_windows:field==="windows"?[]:housePlan.dormer_windows});
+ }
  function updateFoundation(field:"raised"|"height",value:number|boolean){
    if(!housePlan)return;
    const base={raised:!!housePlan.entry_steps?.present,height:.65,...housePlan.foundation};
@@ -412,6 +428,22 @@ export default function Home(){
       <label>Posts <input type="number" min="0" max="8" step="1" value={housePlan.porch_posts.length} onChange={e=>{const n=Math.max(0,Math.min(8,Math.round(Number(e.target.value))));const x=housePlan.porch?.x??.15,w=housePlan.porch?.width??.7;editPlan({...housePlan,porch_posts:Array.from({length:n},(_,i)=>x+w*(i+1)/(n+1))})}}/></label>
     </div>
     <label className="facade-checkbox"><input type="checkbox" checked={!!housePlan.porch?.railing} onChange={e=>updatePorch("railing",e.target.checked)}/> Porch railing</label>
+    <strong>Upper-level structure</strong>
+    <label className="upper-level-option">Type
+     <select value={housePlan.upper_level?.type??(housePlan.roof_feature==="central_dormer"?"dormer":"none")}
+      onChange={e=>updateUpperLevel("type",e.target.value)}>
+      <option value="none">None</option>
+      <option value="dormer">Small roof dormer</option>
+      <option value="half_story">Half-story / upper living level</option>
+     </select>
+    </label>
+    <div className="facade-control-grid">
+     <label>Width <input type="number" min=".12" max=".8" step=".01" value={housePlan.upper_level?.width??housePlan.dormer?.width??.3} onChange={e=>updateUpperLevel("width",Math.max(.12,Math.min(.8,Number(e.target.value))))}/></label>
+     <label>Wall height <input type="number" min=".15" max=".9" step=".05" value={housePlan.upper_level?.height??.5} onChange={e=>updateUpperLevel("height",Math.max(.15,Math.min(.9,Number(e.target.value))))}/></label>
+     <label>Depth inset <input type="number" min="0" max=".6" step=".02" value={housePlan.upper_level?.inset??.22} onChange={e=>updateUpperLevel("inset",Math.max(0,Math.min(.6,Number(e.target.value))))}/></label>
+     <label>Windows <input type="number" min="0" max="4" step="1" value={housePlan.upper_level?.windows??housePlan.dormer?.window_count??0} onChange={e=>updateUpperLevel("windows",Math.max(0,Math.min(4,Math.round(Number(e.target.value)))))} /></label>
+    </div>
+    <p>For the cottage reference, select <strong>Half-story / upper living level</strong> and keep two upper windows. This builds an actual raised wall volume beneath the small gable instead of a flat roof ornament.</p>
     <strong>Dormer</strong>
     <div className="facade-control-grid">
      <label>Position X <input type="number" min="0" max="1" step=".01" value={housePlan.dormer?.center_x??.5} onChange={e=>housePlan.dormer&&editPlan({...housePlan,dormer:{...housePlan.dormer,center_x:Number(e.target.value)}})}/></label>
