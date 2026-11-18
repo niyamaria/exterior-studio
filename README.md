@@ -194,3 +194,13 @@ Gemini now provides foundation.raised and foundation.height (meters) for an entr
 ## Half-story cottage upper level
 
 The Gemini architectural plan now includes an `upper_level` object with `type` (`none`, `dormer`, or `half_story`), normalized width, relative wall height, depth inset, and upper-window count. The facade review lets users override detection without another Gemini call. **Half-story** creates genuine separately named upper wall, side-wall, floor and gable roof meshes and raised upper windows, instead of just a flat triangle on the main roof. Use `Half-story / upper living level` with two windows for the current raised cottage. Existing foundation, steps, porch, colors and exports are unchanged. The reproducible `examples/cottage-facade-test.json` fixture now includes this option. This remains estimated architectural geometry, not a measured photogrammetric model.
+
+## Visual UX refresh: Exterior Studio design playground
+
+The UI now opens with a custom vector house illustration, a shorter **Start with a photo** entry point, and a 3-part Upload → Design → Export progress display. Multiple reference photos remain supported with viewpoint selectors and previews.
+
+The main workflow is **Upload → Create my 3D home → Check the image alignment → See my 3D home → Choose surface colors → Save 4 views**. Material editing is presented as larger icon cards and color chips. The existing model and Gemini/Blender endpoints are unchanged.
+
+Optional technical actions (the standalone AI photo analysis and schematic generator, native GLB import, Blender build settings, and layout corrections) are grouped behind expandable controls, and detailed facade coordinate inputs are hidden until **Fine-tune the details** is expanded. This keeps advanced capabilities accessible without crowding the primary journey. All graphics are inline SVG/CSS, requiring no extra frontend dependency or external image asset.
+
+To run locally, `git pull` and `npm run dev`. This is a visual change; the end-to-end rendering and mobile layout still need browser validation.
