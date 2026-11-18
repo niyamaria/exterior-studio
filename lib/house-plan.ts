@@ -5,7 +5,7 @@ export type HousePlan = {
   siding_color:string;
   roof_ridge_direction:"front_to_back"|"left_to_right";
   roof_pitch:"low"|"medium"|"steep";
-  openings:Array<{kind:"window"|"entry_door"|"garage_door";x:number;y:number;width:number;height:number}>;
+  openings:Array<{kind:"window"|"entry_door"|"garage_door";x:number;y:number;width:number;height:number;shape?:"arched"|"rectangular";shutters?:boolean}>;
   porch_posts:number[];
   architectural_notes:string;
   garage_side?:"left"|"right"|"none";
@@ -29,5 +29,7 @@ export function isHousePlan(value:unknown):value is HousePlan {
   (p.observed_views===undefined || (Array.isArray(p.observed_views) && p.observed_views.every(v=>["front","left","right","rear"].includes(v)))) &&
   (p.side_openings===undefined || (Array.isArray(p.side_openings) && p.side_openings.every(o=>o && ["left","right","rear"].includes(o.view) && kinds.includes(o.kind) && [o.x,o.y,o.width,o.height].every(Number.isFinite)))) &&
   Array.isArray(p.openings) && p.openings.every(o=>o&&kinds.includes(o.kind) &&
-    [o.x,o.y,o.width,o.height].every(x=>typeof x==="number"&&Number.isFinite(x)));
+    [o.x,o.y,o.width,o.height].every(x=>typeof x==="number"&&Number.isFinite(x)) &&
+    (o.shape===undefined||["arched","rectangular"].includes(o.shape)) &&
+    (o.shutters===undefined||typeof o.shutters==="boolean")));
 }
