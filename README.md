@@ -190,3 +190,7 @@ Import the resulting GLB in Exterior Studio to compare it with a Gemini-produced
 ## Raised front entrance
 
 Gemini now provides foundation.raised and foundation.height (meters) for an entrance above surrounding ground. The review UI lets you correct that estimated elevation before building. Blender creates separate foundation walls and connects the exterior steps between yard grade and the raised porch. The GLB viewer also aligns the imported lawn with the display ground. This feature models a raised porch/foundation, not a hillside or a full second story. The cottage fixture uses an illustrative 0.68 m rise. Regenerate after pulling updates.
+
+## Half-story cottage upper level
+
+The Gemini architectural plan now includes an `upper_level` object with `type` (`none`, `dormer`, or `half_story`), normalized width, relative wall height, depth inset, and upper-window count. The facade review lets users override detection without another Gemini call. **Half-story** creates genuine separately named upper wall, side-wall, floor and gable roof meshes and raised upper windows, instead of just a flat triangle on the main roof. Use `Half-story / upper living level` with two windows for the current raised cottage. Existing foundation, steps, porch, colors and exports are unchanged. The reproducible `examples/cottage-facade-test.json` fixture now includes this option. This remains estimated architectural geometry, not a measured photogrammetric model.
