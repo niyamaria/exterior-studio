@@ -80,8 +80,33 @@ export default function Home(){
    setPhotoSlots(remaining);setPhotoFile(remaining[0]?.file||null);
    setPhotoName(remaining.map(p=>p.file.name).join(", "));setPhotoInputError("");resetGenerated();
  }
- function attachPhotos(form:FormData){
-   for(const slot of photoSlots){form.append("photos",slot.file);form.append("views",slot.view);}
+ async function prepareForGemini(file:File):Promise<Blob>{
+   // Preserve the original photo for preview; transmit a smaller copy to save
+   // Gemini processing time and upload bandwidth. Never upscale small images.
+   if(file.size<450000)return file;
+   try{
+     const image=await createImageBitmap(file);
+     const limit=1600;
+     const scale=Math.min(1,limit/Math.max(image.width,image.height));
+     const width=Math.max(1,Math.round(image.width*scale));
+     const height=Math.max(1,Math.round(image.height*scale));
+     const canvas=document.createElement("canvas");
+     canvas.width=width;canvas.height=height;
+     const context=canvas.getContext("2d");
+     if(!context){image.close();return file;}
+     context.drawImage(image,0,0,width,height);
+     image.close();
+     const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,"image/jpeg",.84));
+     return blob && blob.size<file.size?blob:file;
+   }catch{return file;}
+ }
+ async function attachPhotos(form:FormData){
+   for(const slot of photoSlots){
+     const optimized=await prepareForGemini(slot.file);
+     const filename=optimized===slot.file?slot.file.name:slot.file.name.replace(/\.[^/.]+$/,"")+".jpg";
+     form.append("photos",optimized,filename);
+     form.append("views",slot.view);
+   }
  }
  const [analysis,setAnalysis]=useState<Analysis|null>(null);
  const [analyzing,setAnalyzing]=useState(false);
@@ -253,7 +278,7 @@ export default function Home(){
   if(!photoSlots.length)return;
   setAutoBuilding(true);setGenerationError("");setBlenderError("");setAnalysisError("");
   try{
-    const form=new FormData();attachPhotos(form);
+    const form=new FormData();await attachPhotos(form);
     const planned=await fetch("/api/scene-plan",{method:"POST",body:form});
     const layout=await planned.json();
     if(!planned.ok)throw new Error(layout.error||"Gemini could not interpret these photos.");
@@ -281,7 +306,7 @@ export default function Home(){
   if(!photoSlots.length)return;
   setGenerating(true);setGenerationError("");
   try{
-   const form=new FormData();attachPhotos(form);
+   const form=new FormData();await attachPhotos(form);
    const response=await fetch("/api/scene-plan",{method:"POST",body:form});
    const data=await response.json();
    if(!response.ok)throw new Error(data.error||"Couldn't generate schematic layout.");
@@ -295,7 +320,7 @@ export default function Home(){
   if(!photoSlots.length)return;
   setAnalyzing(true);setAnalysisError("");setAnalysis(null);
   try{
-    const body=new FormData();attachPhotos(body);
+    const body=new FormData();await attachPhotos(body);
     const result=await fetch("/api/analyze",{method:"POST",body});
     const json=await result.json();
     if(!result.ok)throw new Error(json.error||"Image analysis failed.");
